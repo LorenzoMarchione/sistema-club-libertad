@@ -1,0 +1,52 @@
+# ==================================
+# IGNORAR ARTEFACTOS DE SPRING BOOT
+# ==================================
+# Archivos y directorios generados por IDEs
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+/target/
+/out/
+# Directorios de Build
+# Maven
+target/
+pom.xml.tag
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+build/
+!/src/main//build/
+!/src/test//build/
+# Gradle
+.gradle
+/build/
+!/src/main//build/
+!/src/test//build/
+# Spring Boot
+# Paquetes JAR/WAR compilados
+*.jar
+*.war
+*.zip
+*.tar.gz
+# Archivos de logs
+*.log
+logs
+/log/
+# Archivos de configuración de entorno
+# Idealmente, las variables de entorno o credenciales DEBEN ser ignoradas.
+# NUNCA subas credenciales de bases de datos, claves de API, etc.
+# Spring Boot por defecto
+application*.properties.local
+application*.yml.local
+/src/main/resources/application-secret.properties
+/src/main/resources/application-secret.yml
+# Archivos de Testing
+/test-output/
+/junit-report/
+# Dependencias externas
+/lib/
+# Archivos de sistema operativo
+.DS_StoreThumbs.db
