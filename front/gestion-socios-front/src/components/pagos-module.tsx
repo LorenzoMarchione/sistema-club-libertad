@@ -100,10 +100,15 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   
   const [selectedSocio, setSelectedSocio] = useState('');
   const [conceptos, setConceptos] = useState<{ concepto: string; monto: number }[]>([
-    { concepto: '', monto: 0 }
+    { concepto: 'Entrenador', monto: 0 },
+    { concepto: 'Seguro', monto: 0 },
+    { concepto: 'Cuota Social', monto: 0 }
   ]);
   const [metodoPago, setMetodoPago] = useState<'efectivo' | 'transferencia' | 'debito_automatico'>('efectivo');
   const [mes, setMes] = useState('');
+
+  // Conceptos predefinidos
+  const conceptosPredefinidos = ['Entrenador', 'Seguro', 'Cuota Social'];
 
   const mockSocios = [
     { id: '1', nombre: 'Carlos González', dni: '12345678' },
@@ -140,7 +145,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
   const resetForm = () => {
     setSelectedSocio('');
-    setConceptos([{ concepto: '', monto: 0 }]);
+    setConceptos([{ concepto: 'Entrenador', monto: 0 }, { concepto: 'Seguro', monto: 0 }, { concepto: 'Cuota Social', monto: 0 }]);
     setMetodoPago('efectivo');
     setMes('');
   };
@@ -363,38 +368,23 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <Label>Conceptos de Pago *</Label>
-                        <Button size="sm" variant="outline" onClick={agregarConcepto}>
-                          <Plus className="w-4 h-4 mr-1" />
-                          Agregar Concepto
-                        </Button>
-                      </div>
-                      <div className="space-y-2 border rounded-lg p-3">
+                      <Label>Conceptos de Pago *</Label>
+                      <div className="space-y-3 border rounded-lg p-3">
                         {conceptos.map((concepto, index) => (
-                          <div key={index} className="flex gap-2">
-                            <Input
-                              placeholder="Concepto (Ej: Cuota Fútbol)"
-                              value={concepto.concepto}
-                              onChange={(e) => actualizarConcepto(index, 'concepto', e.target.value)}
-                              className="flex-1"
-                            />
-                            <Input
-                              type="number"
-                              placeholder="Monto"
-                              value={concepto.monto || ''}
-                              onChange={(e) => actualizarConcepto(index, 'monto', parseFloat(e.target.value) || 0)}
-                              className="w-32"
-                            />
-                            {conceptos.length > 1 && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => eliminarConcepto(index)}
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </Button>
-                            )}
+                          <div key={index} className="flex gap-2 items-center">
+                            <div className="flex-1 px-3 py-2 bg-gray-50 border rounded-md">
+                              {concepto.concepto}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">$</span>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={concepto.monto || ''}
+                                onChange={(e) => actualizarConcepto(index, 'monto', parseFloat(e.target.value) || 0)}
+                                className="w-32"
+                              />
+                            </div>
                           </div>
                         ))}
                         <div className="pt-2 border-t flex justify-between">
