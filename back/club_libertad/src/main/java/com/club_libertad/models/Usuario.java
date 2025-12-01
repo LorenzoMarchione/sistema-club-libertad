@@ -1,0 +1,27 @@
+package com.club_libertad.models;
+
+import com.club_libertad.enums.RoleUsuario;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Usuario {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(name = "username", unique = true, nullable = false)
+    private String username;
+    @Column(name = "password_hash", nullable = false)
+    private String password;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RoleUsuario role;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "persona_id", unique = true, nullable = false)
+    private Persona persona;
+}
