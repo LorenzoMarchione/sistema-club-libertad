@@ -345,7 +345,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                       </div>
                       <div className="space-y-2">
                         <Label>Método de Pago *</Label>
-                        <Select value={metodoPago} onValueChange={(v) => setMetodoPago(v as any)}>
+                        <Select value={metodoPago} onValueChange={(v: any) => setMetodoPago(v as any)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -531,7 +531,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="edit-metodo">Método de Pago</Label>
-                <Select value={editMetodoPago} onValueChange={(v) => setEditMetodoPago(v as any)}>
+                <Select value={editMetodoPago} onValueChange={(v: any) => setEditMetodoPago(v as any)}>
                   <SelectTrigger id="edit-metodo">
                     <SelectValue />
                   </SelectTrigger>
@@ -545,7 +545,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="edit-estado">Estado del Pago</Label>
-                <Select value={editEstado} onValueChange={(v) => setEditEstado(v as any)}>
+                <Select value={editEstado} onValueChange={(v: any) => setEditEstado(v as any)}>
                   <SelectTrigger id="edit-estado">
                     <SelectValue />
                   </SelectTrigger>
