@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -8,23 +8,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Edit, Trash2, Search, UserPlus, History } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import personaService from '../services/personaService';
+import type { Persona } from '../types/persona';
 
 interface Socio {
   id: string;
   apellido: string;
   nombre: string;
   dni: string;
-  direccion: string;
-  telefono: string;
-  correo: string;
-  categoria: 'socio' | 'jugador';
+  direccion: string | null;
+  telefono: string | null;
+  correo: string | null;
+  categoria: 'socio' | 'jugador' | 'socio y jugador';
   edad: number;
   responsablePago?: string;
   deportes: string[];
   estado: 'activo' | 'inactivo';
-  fechaRegistro: string; // formato ISO
+  fechaRegistro: string;
 }
 
 interface HistorialRegistro {
@@ -38,63 +40,38 @@ interface SociosModuleProps {
   userRole: 'admin' | 'secretario';
 }
 
+// Mapeo de categoría del backend → frontend
+const mapCategoria = (categoriaBackend: string): 'socio' | 'jugador' | 'socio y jugador' => {
+  switch (categoriaBackend) {
+    case 'SOCIO':
+      return 'socio';
+    case 'JUGADOR':
+      return 'jugador';
+    case 'SOCIOYJUGADOR':
+      return 'socio y jugador';
+    default:
+      return 'socio';
+  }
+};
+
+// Calcula la edad a partir de la fecha de nacimiento (ISO string)
+const calcularEdad = (fechaNacimiento: string | null): number => {
+  if (!fechaNacimiento) return 0;
+  const hoy = new Date();
+  const nacimiento = new Date(fechaNacimiento);
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const mes = hoy.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+    edad--;
+  }
+  return edad;
+};
+
 export function SociosModule({ userRole }: SociosModuleProps) {
-  // Función para formatear fecha en formato dd/mm/yyyy
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  const [socios, setSocios] = useState<Socio[]>([
-    {
-      id: '1',
-      apellido: 'González',
-      nombre: 'Carlos',
-      dni: '12345678',
-      direccion: 'Av. Libertador 1234',
-      telefono: '11-2345-6789',
-      correo: 'carlos.gonzalez@email.com',
-      categoria: 'socio',
-      edad: 45,
-      deportes: ['Fútbol', 'Tenis'],
-      estado: 'activo',
-      fechaRegistro: '2024-01-15T00:00:00',
-    },
-    {
-      id: '2',
-      apellido: 'González',
-      nombre: 'Lucas',
-      dni: '98765432',
-      direccion: 'Av. Libertador 1234',
-      telefono: '11-2345-6789',
-      correo: 'lucas.gonzalez@email.com',
-      categoria: 'jugador',
-      edad: 12,
-      responsablePago: 'Carlos González (DNI: 12345678)',
-      deportes: ['Fútbol'],
-      estado: 'activo',
-      fechaRegistro: '2024-02-10T00:00:00',
-    },
-    {
-      id: '3',
-      apellido: 'Martínez',
-      nombre: 'Ana',
-      dni: '23456789',
-      direccion: 'Calle San Martín 567',
-      telefono: '11-3456-7890',
-      correo: 'ana.martinez@email.com',
-      categoria: 'jugador',
-      edad: 28,
-      deportes: ['Voley', 'Natación'],
-      estado: 'activo',
-      fechaRegistro: '2024-03-05T00:00:00',
-    },
-  ]);
-
-  const [historialRegistros, setHistorialRegistros] = useState<HistorialRegistro[]>([
+  const [socios, setSocios] = useState<Socio[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+    const [historialRegistros, setHistorialRegistros] = useState<HistorialRegistro[]>([
     {
       id: '1',
       nombre: 'Carlos González',
@@ -126,9 +103,6 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       fechaRegistro: '2024-05-12T00:00:00',
     },
   ]);
-
-  const deportesDisponibles = ['Fútbol', 'Tenis', 'Voley', 'Natación'];
-
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategoria, setFilterCategoria] = useState<string>('all');
   const [filterDeporte, setFilterDeporte] = useState<string>('all');
@@ -139,9 +113,65 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     estado: 'activo',
     deportes: [],
   });
-
-  // Búsqueda en historial
+    // Búsqueda en historial
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
+
+  const deportesDisponibles = ['Fútbol', 'Tenis', 'Voley', 'Natación'];
+  
+  // Función para formatear fecha en formato dd/mm/yyyy
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+    useEffect(() => {
+    const cargarSocios = async () => {
+      try {
+        setLoading(true);
+        const response = await personaService.getAll();
+        const personasBackend = response.data; // Axios devuelve { data, status, ... }
+
+        const sociosMapeados: Socio[] = personasBackend.map((p : Persona) => {
+          // Formatear responsable de pago
+          let responsablePago: string | undefined = undefined;
+          if (p.socioResponsable) {
+            responsablePago = `${p.socioResponsable.nombre} ${p.socioResponsable.apellido} (DNI: ${p.socioResponsable.dni})`;
+          }
+
+          return {
+            id: p.id.toString(),
+            apellido: p.apellido,
+            nombre: p.nombre,
+            dni: p.dni,
+            direccion: p.direccion,
+            telefono: p.telefono,
+            correo: p.correo, 
+            categoria: mapCategoria(p.categoria),
+            edad: calcularEdad(p.fechaNacimiento),
+            responsablePago,
+            deportes: [], // futuro: se llenará desde otro endpoint
+            estado: p.estado ? 'activo' : 'inactivo',
+            fechaRegistro: p.fechaRegistro,
+          };
+        });
+
+        setSocios(sociosMapeados);
+      } catch (err) {
+        console.error('Error al cargar socios:', err);
+        setError('No se pudieron cargar los socios');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    cargarSocios();
+  }, []);
+
+  if (loading) return <div>Cargando socios...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   const filteredSocios = socios.filter(socio => {
     const matchesSearch = 
@@ -324,8 +354,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="socio">Socio</SelectItem>
-                        <SelectItem value="jugador">Jugador</SelectItem>
+                        <SelectItem value="SOCIO">Socio</SelectItem>
+                        <SelectItem value="JUGADOR">Jugador</SelectItem>
+                        <SelectItem value="SOCIOYJUGADOR">Socio y Jugador</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

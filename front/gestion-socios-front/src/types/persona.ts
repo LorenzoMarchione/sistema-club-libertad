@@ -1,14 +1,16 @@
 export interface Persona {
-  id: number;
-  nombre: string;
+  id: string;
   apellido: string;
+  nombre: string;
   dni: string;
-  fechaNacimiento: string | null; // o Date si usas librerías como date-fns
-  email: string | null;
-  telefono: string | null;
   direccion: string | null;
+  telefono: string | null;
+  correo: string | null;
   categoria: 'SOCIO' | 'JUGADOR' | 'SOCIOYJUGADOR';
-  fechaRegistro: string; // ISO 8601
-  activo: boolean;
-  socioResponsable: Persona | null;
+  edad: number;
+  fechaNacimiento: string; // ISO
+  socioResponsable?: Persona; // "Nombre Apellido (DNI: XXXXXXXX)"
+  deportes: string[]; // reservado para futuro
+  estado: 'activo' | 'inactivo';
+  fechaRegistro: string; // ISO
 }

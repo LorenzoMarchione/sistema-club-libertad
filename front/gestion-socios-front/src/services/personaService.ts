@@ -14,7 +14,10 @@ const PERSONA_ENDPOINTS = {
 // Servicio reutilizable
 const personaService = {
   getAll() {
-    return api.get<Persona[]>(PERSONA_ENDPOINTS.GET_ALL);
+    return api.get<Persona[]>('/personas').catch(error => {
+      console.error('Error en la API:', error);
+      throw error; // Re-lanza para que el catch en el componente lo maneje
+    });
   },
 
   getById(id: number) {
