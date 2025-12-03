@@ -13,48 +13,36 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
 import type { Persona } from '../types/persona';
 
-interface Socio {
-  id: string;
-  apellido: string;
-  nombre: string;
-  dni: string;
-  direccion: string | null;
-  telefono: string | null;
-  correo: string | null;
-  categoria: 'socio' | 'jugador' | 'socio y jugador';
-  edad: number;
+// Usamos directamente el tipo Persona del backend
+type Socio = Persona & {
   responsablePago?: string;
-  deportes: string[];
   estado: 'activo' | 'inactivo';
-  fechaRegistro: string;
+};
+
+interface FormSocio {
+  nombre?: string;
+  apellido?: string;
+  dni?: string;
+  fechaNacimiento?: string;
+  direccion?: string | null;
+  telefono?: string | null;
+  correo?: string | null;
+  categoria: 'SOCIO' | 'JUGADOR' | 'SOCIOYJUGADOR';
+  estado: 'activo' | 'inactivo';
 }
 
 interface HistorialRegistro {
   id: string;
   nombre: string;
   dni: string;
-  fechaRegistro: string; // formato ISO
+  fechaRegistro: string;
 }
 
 interface SociosModuleProps {
   userRole: 'admin' | 'secretario';
 }
 
-// Mapeo de categoría del backend → frontend
-const mapCategoria = (categoriaBackend: string): 'socio' | 'jugador' | 'socio y jugador' => {
-  switch (categoriaBackend) {
-    case 'SOCIO':
-      return 'socio';
-    case 'JUGADOR':
-      return 'jugador';
-    case 'SOCIOYJUGADOR':
-      return 'socio y jugador';
-    default:
-      return 'socio';
-  }
-};
-
-// Calcula la edad a partir de la fecha de nacimiento (ISO string)
+// Calcula la edad a partir de la fecha de nacimiento
 const calcularEdad = (fechaNacimiento: string | null): number => {
   if (!fechaNacimiento) return 0;
   const hoy = new Date();
@@ -71,7 +59,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [socios, setSocios] = useState<Socio[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-    const [historialRegistros, setHistorialRegistros] = useState<HistorialRegistro[]>([
+  const [historialRegistros, setHistorialRegistros] = useState<HistorialRegistro[]>([
     {
       id: '1',
       nombre: 'Carlos González',
@@ -108,17 +96,16 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [filterDeporte, setFilterDeporte] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSocio, setEditingSocio] = useState<Socio | null>(null);
-  const [formData, setFormData] = useState<Partial<Socio>>({
-    categoria: 'socio',
+  const [formData, setFormData] = useState<FormSocio>({
+    categoria: 'SOCIO',
     estado: 'activo',
-    deportes: [],
   });
-    // Búsqueda en historial
+  
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
 
   const deportesDisponibles = ['Fútbol', 'Tenis', 'Voley', 'Natación'];
   
-  // Función para formatear fecha en formato dd/mm/yyyy
+  // Función para formatear fecha
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const day = String(date.getDate()).padStart(2, '0');
@@ -127,38 +114,30 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     return `${day}/${month}/${year}`;
   };
 
-    useEffect(() => {
+  // Carga limpia de socios desde el backend
+  useEffect(() => {
     const cargarSocios = async () => {
       try {
         setLoading(true);
         const response = await personaService.getAll();
-        const personasBackend = response.data; // Axios devuelve { data, status, ... }
+        const personas = response.data;
 
-        const sociosMapeados: Socio[] = personasBackend.map((p : Persona) => {
-          // Formatear responsable de pago
-          let responsablePago: string | undefined = undefined;
-          if (p.socioResponsable) {
-            responsablePago = `${p.socioResponsable.nombre} ${p.socioResponsable.apellido} (DNI: ${p.socioResponsable.dni})`;
-          }
+        // Transformación mínima para ajustar al frontend
+        const sociosFormateados: Socio[] = personas.map((persona: Persona) => ({
+          ...persona,
+          responsablePago: persona.socioResponsable 
+            ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
+            : undefined,
+          estado: persona.estado, // Ya está en el formato correcto
+          //=========================================================================
+          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
+          deportes: Array.isArray(persona.deportes) ? persona.deportes : [], // <-- default
+          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
+          //=========================================================================
+        }));
 
-          return {
-            id: p.id.toString(),
-            apellido: p.apellido,
-            nombre: p.nombre,
-            dni: p.dni,
-            direccion: p.direccion,
-            telefono: p.telefono,
-            correo: p.correo, 
-            categoria: mapCategoria(p.categoria),
-            edad: calcularEdad(p.fechaNacimiento),
-            responsablePago,
-            deportes: [], // futuro: se llenará desde otro endpoint
-            estado: p.estado ? 'activo' : 'inactivo',
-            fechaRegistro: p.fechaRegistro,
-          };
-        });
-
-        setSocios(sociosMapeados);
+        setSocios(sociosFormateados);
+        setError(null);
       } catch (err) {
         console.error('Error al cargar socios:', err);
         setError('No se pudieron cargar los socios');
@@ -170,16 +149,17 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     cargarSocios();
   }, []);
 
-  if (loading) return <div>Cargando socios...</div>;
-  if (error) return <div>Error: {error}</div>;
-
+  // Filtros
   const filteredSocios = socios.filter(socio => {
     const matchesSearch = 
       socio.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       socio.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
       socio.dni.includes(searchTerm);
     
-    const matchesCategoria = filterCategoria === 'all' || socio.categoria === filterCategoria;
+    const matchesCategoria = filterCategoria === 'all' || 
+      (filterCategoria === 'socio' && socio.categoria === 'SOCIO') ||
+      (filterCategoria === 'jugador' && socio.categoria === 'JUGADOR') ||
+      (filterCategoria === 'socio y jugador' && socio.categoria === 'SOCIOYJUGADOR');
     
     const matchesDeporte = filterDeporte === 'all' || socio.deportes.includes(filterDeporte);
     
@@ -193,67 +173,121 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     );
   });
 
+  // Abrir diálogo para crear/editar
   const handleOpenDialog = (socio?: Socio) => {
     if (socio) {
       setEditingSocio(socio);
-      setFormData(socio);
+      setFormData({
+        nombre: socio.nombre,
+        apellido: socio.apellido,
+        dni: socio.dni,
+        fechaNacimiento: socio.fechaNacimiento,
+        direccion: socio.direccion,
+        telefono: socio.telefono,
+        correo: socio.correo,
+        categoria: socio.categoria,
+        estado: socio.estado,
+      });
     } else {
       setEditingSocio(null);
       setFormData({
-        categoria: 'socio',
+        categoria: 'SOCIO',
         estado: 'activo',
-        deportes: [],
       });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingSocio) {
-      setSocios(socios.map(s => s.id === editingSocio.id ? { ...formData as Socio, id: editingSocio.id } : s));
-      toast.success('Socio actualizado correctamente');
-    } else {
-      const fechaRegistroNueva = new Date().toISOString();
-      const newSocio = {
-        ...formData as Socio,
-        id: Date.now().toString(),
-        fechaRegistro: fechaRegistroNueva,
+  // Guardar socio (crear o actualizar)
+  const handleSave = async () => {
+    try {
+      const socioData = {
+        nombre: formData.nombre || '',
+        apellido: formData.apellido || '',
+        dni: formData.dni || '',
+        fechaNacimiento: formData.fechaNacimiento || '',
+        direccion: formData.direccion || null,
+        telefono: formData.telefono || null,
+        correo: formData.correo || null,
+        categoria: formData.categoria,
+        estado: formData.estado,
+        edad: formData.fechaNacimiento ? calcularEdad(formData.fechaNacimiento) : 0,
+        deportes: [], // Por ahora vacío
       };
-      setSocios([...socios, newSocio]);
-      
-      // Agregar al historial de registros
-      const nuevoRegistroHistorial: HistorialRegistro = {
-        id: Date.now().toString(),
-        nombre: `${formData.nombre} ${formData.apellido}`,
-        dni: formData.dni!,
-        fechaRegistro: fechaRegistroNueva,
-      };
-      setHistorialRegistros([...historialRegistros, nuevoRegistroHistorial]);
-      
-      toast.success('Socio registrado correctamente');
+
+      if (editingSocio) {
+        await personaService.update(parseInt(editingSocio.id), socioData);
+        toast.success('Socio actualizado correctamente');
+      } else {
+        await personaService.create(socioData);
+        toast.success('Socio registrado correctamente');
+      }
+
+      // Recargar la lista
+      const response = await personaService.getAll();
+      const personas = response.data;
+      const sociosActualizados: Socio[] = personas.map((persona: Persona) => ({
+        ...persona,
+        responsablePago: persona.socioResponsable 
+          ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
+          : undefined,
+        estado: persona.estado,
+          //=========================================================================
+          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
+          deportes: Array.isArray(persona.deportes) ? persona.deportes : [], // <-- default
+          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
+          //=========================================================================
+      }));
+      setSocios(sociosActualizados);
+
+      setIsDialogOpen(false);
+      setFormData({ categoria: 'SOCIO', estado: 'activo' });
+    } catch (error) {
+      console.error('Error al guardar socio:', error);
+      toast.error(editingSocio ? 'Error al actualizar socio' : 'Error al registrar socio');
     }
-    setIsDialogOpen(false);
-    setFormData({ categoria: 'socio', estado: 'activo', deportes: [] });
   };
 
-  const handleDelete = (id: string) => {
+  // Eliminar socio
+  const handleDelete = async (id: string) => {
     if (userRole !== 'admin') {
       toast.error('No tienes permisos para eliminar socios');
       return;
     }
+    
     if (confirm('¿Estás seguro de que deseas eliminar este socio?')) {
-      setSocios(socios.filter(s => s.id !== id));
-      toast.success('Socio eliminado correctamente');
+      try {
+        await personaService.toggleActive(parseInt(id));
+        setSocios(socios.filter(s => s.id !== id));
+        toast.success('Socio eliminado correctamente');
+      } catch (error) {
+        console.error('Error al eliminar socio:', error);
+        toast.error('Error al eliminar socio');
+      }
     }
   };
 
+  // Etiquetas para categorías
   const getCategoriaLabel = (categoria: string) => {
-    const labels = {
-      socio: 'Socio',
-      jugador: 'Jugador',
+    const labels: Record<string, string> = {
+      'SOCIO': 'Socio',
+      'JUGADOR': 'Jugador',
+      'SOCIOYJUGADOR': 'Socio y Jugador',
     };
-    return labels[categoria as keyof typeof labels] || categoria;
+    return labels[categoria] || categoria;
   };
+
+  const getCategoriaFrontendValue = (categoria: string): 'socio' | 'jugador' | 'socio y jugador' => {
+    switch (categoria) {
+      case 'SOCIO': return 'socio';
+      case 'JUGADOR': return 'jugador';
+      case 'SOCIOYJUGADOR': return 'socio y jugador';
+      default: return 'socio';
+    }
+  };
+
+  if (loading) return <div>Cargando socios...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -307,12 +341,12 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edad">Edad *</Label>
+                    <Label htmlFor="fechaNacimiento">Fecha de Nacimiento *</Label>
                     <Input
-                      id="edad"
-                      type="number"
-                      value={formData.edad || ''}
-                      onChange={(e) => setFormData({ ...formData, edad: parseInt(e.target.value) })}
+                      id="fechaNacimiento"
+                      type="date"
+                      value={formData.fechaNacimiento || ''}
+                      onChange={(e) => setFormData({ ...formData, fechaNacimiento: e.target.value })}
                       required
                     />
                   </div>
@@ -375,15 +409,6 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="responsablePago">Responsable de Pago (Opcional)</Label>
-                    <Input
-                      id="responsablePago"
-                      value={formData.responsablePago || ''}
-                      onChange={(e) => setFormData({ ...formData, responsablePago: e.target.value })}
-                      placeholder="Nombre y DNI del responsable (si aplica)"
-                    />
-                  </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -431,6 +456,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     <SelectItem value="all">Todas las categorías</SelectItem>
                     <SelectItem value="socio">Socio</SelectItem>
                     <SelectItem value="jugador">Jugador</SelectItem>
+                    <SelectItem value="socio y jugador">Socio y Jugador</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={filterDeporte} onValueChange={setFilterDeporte}>
@@ -486,7 +512,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           <TableCell>
                             <Badge variant="outline">{getCategoriaLabel(socio.categoria)}</Badge>
                           </TableCell>
-                          <TableCell>{socio.edad} años</TableCell>
+                          <TableCell>{calcularEdad(socio.fechaNacimiento)} años</TableCell>
                           <TableCell>
                             <div className="text-sm">
                               <div>{socio.telefono}</div>

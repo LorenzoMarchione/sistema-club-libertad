@@ -1,3 +1,5 @@
+export type CategoriaBackend = 'SOCIO' | 'JUGADOR' | 'SOCIOYJUGADOR';
+
 export interface Persona {
   id: string;
   apellido: string;
@@ -6,7 +8,7 @@ export interface Persona {
   direccion: string | null;
   telefono: string | null;
   correo: string | null;
-  categoria: 'SOCIO' | 'JUGADOR' | 'SOCIOYJUGADOR';
+  categoria: CategoriaBackend;
   edad: number;
   fechaNacimiento: string; // ISO
   socioResponsable?: Persona; // "Nombre Apellido (DNI: XXXXXXXX)"

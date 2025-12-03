@@ -25,7 +25,13 @@ const personaService = {
   },
 
   create(persona: Omit<Persona, 'id' | 'fechaRegistro'>) {
-    return api.post<string>(PERSONA_ENDPOINTS.CREATE, persona);
+    // Transformar 'estado' de string a booleano antes de enviar
+    const payload = {
+      ...persona,
+      estado: persona.estado === 'activo', // true si es 'activo', false si es 'inactivo'
+    };
+
+    return api.post<string>(PERSONA_ENDPOINTS.CREATE, payload);
   },
 
   update(id: number, persona: Partial<Persona>) {
