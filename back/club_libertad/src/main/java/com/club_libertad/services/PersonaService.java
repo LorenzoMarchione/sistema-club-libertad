@@ -5,6 +5,7 @@ import com.club_libertad.repositories.PersonaRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @Service
@@ -24,6 +25,14 @@ public class PersonaService {
     }
 
     public Long savePersona(Persona persona){
+        // Me aseguro de que la fecha de registro se setee si es una nueva persona
+        if (persona.getId() == null) {
+            persona.setFechaRegistro(ZonedDateTime.now());
+        }
+        // Me aseguro de que 'activo' tenga un valor por defecto si el cliente no lo envía
+        if (persona.getActivo() == null) {
+            persona.setActivo(true); // o false, según tu lógica
+        }
         Persona p = personaRepository.save(persona);
         return p.getId();
     }
