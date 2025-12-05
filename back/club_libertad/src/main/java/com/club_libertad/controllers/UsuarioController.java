@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController(value = "usuarioController")
 public class UsuarioController {
@@ -32,9 +33,9 @@ public class UsuarioController {
     @Operation(summary = "Crea un usuario", description = "Roles - 0 = ADMIN - 1 = SECRETARIO")
     public ResponseEntity<String> createUsuario(@RequestBody UsuarioDTO usuario){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        Usuario u = usuarioService.createUsuario(usuario);
-        if(u != null) {
-            response = ResponseEntity.ok("Usuario con id " + u.getId() +" creado con exito");
+        Optional<Usuario> u = usuarioService.saveUsuario(usuario);
+        if(u.isPresent()) {
+            response = ResponseEntity.ok("Usuario con id " + u.get().getId() +" creado con exito");
         }
         return response;
     }
@@ -43,9 +44,9 @@ public class UsuarioController {
     @Operation(summary = "Valida un usuario")
     public ResponseEntity<String> validateUsuario(@RequestBody LoginDTO login){
         ResponseEntity<String> response = ResponseEntity.ok("Usuario o contraseña incorrectos");
-        Usuario u = usuarioService.validateUsuario(login);
-        if(u != null){
-            response = ResponseEntity.ok("Usuario con id " + u.getId() +" validado con exito");
+        Optional<Usuario> u = usuarioService.validateUsuario(login);
+        if(u.isPresent()){
+            response = ResponseEntity.ok("Usuario con id " + u.get().getId() +" validado con exito");
         }
         return response;
     }

@@ -1,0 +1,64 @@
+package com.club_libertad.controllers;
+
+import com.club_libertad.models.Deporte;
+import com.club_libertad.services.DeporteService;
+import io.swagger.v3.oas.annotations.Operation;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController(value = "/deporteController")
+public class DeporteController {
+    private final DeporteService deporteService;
+    public DeporteController(DeporteService deporteService) {
+        this.deporteService = deporteService;
+    }
+
+    @GetMapping("/deportes")
+    @Operation(summary = "Obtiene todos los deportes")
+    public ResponseEntity<List<Deporte>> getDeportes(){
+        ResponseEntity<List<Deporte>> response = ResponseEntity.noContent().build();
+        List<Deporte> deportes = deporteService.getAllDeportes();
+        if(!deportes.isEmpty()) response = ResponseEntity.ok(deportes);
+        return response;
+    }
+
+    @GetMapping("/deporte/{id}")
+    @Operation(summary = "Obtiene un deporte por su id")
+    public ResponseEntity<Deporte> getDeporteById(@PathVariable Long id){
+        ResponseEntity<Deporte> response = ResponseEntity.notFound().build();
+        Optional<Deporte> deporte = deporteService.getDeporteById(id);
+        if(deporte.isPresent()) response = ResponseEntity.ok(deporte.get());
+        return response;
+    }
+
+    @PostMapping("/deporte")
+    @Operation(summary = "Crea un deporte", description = "No mandar id para crear un deporte")
+    public ResponseEntity<String> createDeporte(@RequestBody Deporte deporte){
+        ResponseEntity<String> response = ResponseEntity.badRequest().build();
+        Optional<Long> id = deporteService.saveDeporte(deporte);
+        if(id.isPresent()) response = ResponseEntity.ok("Deporte con id " + id.get() + " creada con exito");
+        return response;
+    }
+
+    @PatchMapping("/deporte/{id}")
+    @Operation(summary = "Actualiza uno o varios campos de un deporte por su id")
+    public ResponseEntity<String> updateDeporte(@PathVariable Long id, @RequestBody Deporte deporte){
+        ResponseEntity<String> response = ResponseEntity.badRequest().build();
+        boolean b = deporteService.updateDeporte(id, deporte);
+        if(b) response = ResponseEntity.ok("Deporte con id " + id + " actualizada con exito");
+        return response;
+    }
+
+    @DeleteMapping("/deporte/{id}")
+    @Operation(summary = "Elimina un deporte por su id")
+    public ResponseEntity<String> deleteDeporte(@PathVariable Long id){
+        ResponseEntity<String> response = ResponseEntity.badRequest().build();
+        boolean b = deporteService.deleteDeporteById(id);
+        if(b) response = ResponseEntity.ok("Deporte con id " + id + " eliminada con exito");
+        return response;
+    }
+
+}
