@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController(value = "personaController")
 public class PersonaController {
@@ -28,9 +29,9 @@ public class PersonaController {
     @GetMapping("/persona/{id}")
     @Operation(summary = "Obtiene una persona por su id")
     public ResponseEntity<Persona> getPersonaById(@PathVariable Long id) {
-        Persona persona = personaService.getPersonaById(id);
+        Optional<Persona> persona = personaService.getPersonaById(id);
         ResponseEntity<Persona> response = ResponseEntity.notFound().build();
-        if(persona != null) response = ResponseEntity.ok(persona);
+        if(persona.isPresent()) response = ResponseEntity.ok(persona.get());
         return response;
     }
 
@@ -38,8 +39,8 @@ public class PersonaController {
     @Operation(summary = "Crea una persona (Socio o Jugador)", description = "No mandar id para crear una persona - Roles - 0 = SOCIO - 1 = JUGADOR - 2 = SOCIOYJUGADOR")
     public ResponseEntity<String> createPersona(@RequestBody Persona persona) {
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        Long id = personaService.savePersona(persona);
-        if(id != null) response = ResponseEntity.ok("Persona con id " + id + " creada con exito");
+        Optional<Long> id = personaService.savePersona(persona);
+        if(id.isPresent()) response = ResponseEntity.ok("Persona con id " + id.get() + " creada con exito");
         return response;
     }
 
