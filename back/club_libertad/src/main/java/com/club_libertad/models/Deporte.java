@@ -7,9 +7,9 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Entity
+@Table(name = "deporte")
 @Data
 @NoArgsConstructor
-@Table(name = "deporte")
 public class Deporte {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

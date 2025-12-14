@@ -26,7 +26,7 @@ public class InscripcionController {
         return response;
     }
 
-    @GetMapping("/incripcion/{id}")
+    @GetMapping("/inscripcion/{id}")
     @Operation(summary = "Obtiene una inscripcion por su id")
     public ResponseEntity<Inscripcion> getInscripcionById(@PathVariable Long id){
         ResponseEntity<Inscripcion> response = ResponseEntity.notFound().build();
@@ -53,7 +53,7 @@ public class InscripcionController {
 
     @PatchMapping("/inscripcion/{id}")
     @Operation(summary = "Da de baja una inscripcion por su id")
-    public ResponseEntity<String> updateInscripcion(@PathVariable Long id){
+    public ResponseEntity<String> bajaInscripcion(@PathVariable Long id){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = inscripcionService.darBajaInscripcion(id);
         if(b) response = ResponseEntity.ok("Inscripcion con id " + id + " dada de baja con exito");
