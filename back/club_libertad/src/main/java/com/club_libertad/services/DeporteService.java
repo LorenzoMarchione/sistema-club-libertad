@@ -1,5 +1,6 @@
 package com.club_libertad.services;
 
+import com.club_libertad.dtos.DeporteDTO;
 import com.club_libertad.models.Deporte;
 import com.club_libertad.repositories.DeporteRepository;
 import org.springframework.stereotype.Service;
@@ -27,10 +28,13 @@ public class DeporteService {
     }
 
     @Transactional
-    public Optional<Long> saveDeporte(Deporte deporte){
-        if(deporte.getCuotaMensual() == null) deporte.setCuotaMensual(BigDecimal.ZERO);
-        Deporte saveDeporte = deporteRepository.save(deporte);
-        return Optional.of(saveDeporte.getId());
+    public Optional<Long> saveDeporte(DeporteDTO deporteTransfer){
+        Deporte deporteCreate = new Deporte();
+        deporteCreate.setNombre(deporteTransfer.getNombre());
+        deporteCreate.setDescripcion(deporteTransfer.getDescripcion());
+        if(deporteTransfer.getCuotaMensual() == null) deporteCreate.setCuotaMensual(BigDecimal.ZERO);
+        Deporte deporteCreated = deporteRepository.save(deporteCreate);
+        return Optional.of(deporteCreated.getId());
     }
 
     @Transactional

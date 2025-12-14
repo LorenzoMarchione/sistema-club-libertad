@@ -1,5 +1,6 @@
 package com.club_libertad.services;
 
+import com.club_libertad.dtos.PersonaDTO;
 import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.PersonaRepository;
 
@@ -29,16 +30,26 @@ public class PersonaService {
     }
 
     @Transactional
-    public Optional<Long> savePersona(Persona persona){
-        // Me aseguro de que la fecha de registro se setee si es una nueva persona
-        if (persona.getId() == null) {
-            persona.setFechaRegistro(ZonedDateTime.now());
+    public Optional<Long> savePersona(PersonaDTO personaTransfer){
+        Persona personaCreate = new Persona();
+        personaCreate.setNombre(personaTransfer.getNombre());
+        personaCreate.setApellido(personaTransfer.getApellido());
+        personaCreate.setDni(personaTransfer.getDni());
+        personaCreate.setFechaNacimiento(personaTransfer.getFechaNacimiento());
+        personaCreate.setEmail(personaTransfer.getEmail());
+        personaCreate.setTelefono(personaTransfer.getTelefono());
+        personaCreate.setDireccion(personaTransfer.getDireccion());
+        personaCreate.setCategoria(personaTransfer.getCategoria());
+        // Me aseguro que se cree un registro de fecha de registro
+        personaCreate.setFechaRegistro(ZonedDateTime.now());
+        // Me aseguro de que 'activo' tenga un valor por defecto
+        personaCreate.setActivo(true);
+        if(personaTransfer.getSocioResponsableId() != null){
+            Persona socioResponsable = new Persona();
+            socioResponsable.setId(personaTransfer.getSocioResponsableId());
+            personaCreate.setSocioResponsable(socioResponsable);
         }
-        // Me aseguro de que 'activo' tenga un valor por defecto si el cliente no lo envía
-        if (persona.getActivo() == null) {
-            persona.setActivo(true); // o false, según tu lógica
-        }
-        Persona p = personaRepository.save(persona);
+        Persona p = personaRepository.save(personaCreate);
         return Optional.of(p.getId());
     }
 

@@ -1,5 +1,6 @@
 package com.club_libertad.controllers;
 
+import com.club_libertad.dtos.DeporteDTO;
 import com.club_libertad.models.Deporte;
 import com.club_libertad.services.DeporteService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,11 +36,18 @@ public class DeporteController {
     }
 
     @PostMapping("/deporte")
-    @Operation(summary = "Crea un deporte", description = "No mandar id para crear un deporte")
-    public ResponseEntity<String> createDeporte(@RequestBody Deporte deporte){
-        ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        Optional<Long> id = deporteService.saveDeporte(deporte);
-        if(id.isPresent()) response = ResponseEntity.ok("Deporte con id " + id.get() + " creada con exito");
+    @Operation(summary = "Crea un deporte")
+    public ResponseEntity<String> createDeporte(@RequestBody DeporteDTO deporteTransfer){
+        ResponseEntity<String> response = ResponseEntity
+                .status(400)
+                .body("Error al crear el deporte");
+        try{
+            Optional<Long> id = deporteService.saveDeporte(deporteTransfer);
+            if(id.isPresent()) response = ResponseEntity.ok("Deporte con id " + id.get() + " creada con exito");
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+        }
         return response;
     }
 
