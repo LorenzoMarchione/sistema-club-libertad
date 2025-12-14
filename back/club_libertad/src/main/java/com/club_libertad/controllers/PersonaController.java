@@ -1,5 +1,6 @@
 package com.club_libertad.controllers;
 
+import com.club_libertad.dtos.PersonaDTO;
 import com.club_libertad.services.PersonaService;
 import com.club_libertad.models.Persona;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,11 +37,18 @@ public class PersonaController {
     }
 
     @PostMapping("/persona")
-    @Operation(summary = "Crea una persona (Socio o Jugador)", description = "No mandar id para crear una persona - Roles - 0 = SOCIO - 1 = JUGADOR - 2 = SOCIOYJUGADOR")
-    public ResponseEntity<String> createPersona(@RequestBody Persona persona) {
-        ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        Optional<Long> id = personaService.savePersona(persona);
-        if(id.isPresent()) response = ResponseEntity.ok("Persona con id " + id.get() + " creada con exito");
+    @Operation(summary = "Crea una persona (Socio o Jugador)", description = "Roles - 0 = SOCIO - 1 = JUGADOR - 2 = SOCIOYJUGADOR")
+    public ResponseEntity<String> createPersona(@RequestBody PersonaDTO personaTransfer) {
+        ResponseEntity<String> response = ResponseEntity
+                .status(400)
+                .body("Error al crear la persona");
+        try{
+            Optional<Long> id = personaService.savePersona(personaTransfer);
+            if(id.isPresent()) response = ResponseEntity.ok("Persona con id " + id.get() + " creada con exito");
+        }
+        catch (Exception e){
+            System.out.println(e.getMessage());
+        }
         return response;
     }
 

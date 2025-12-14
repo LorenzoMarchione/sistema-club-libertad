@@ -31,11 +31,15 @@ public class UsuarioController {
 
     @PostMapping("/usuario")
     @Operation(summary = "Crea un usuario", description = "Roles - 0 = ADMIN - 1 = SECRETARIO")
-    public ResponseEntity<String> createUsuario(@RequestBody UsuarioDTO usuario){
-        ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        Optional<Usuario> u = usuarioService.saveUsuario(usuario);
-        if(u.isPresent()) {
-            response = ResponseEntity.ok("Usuario con id " + u.get().getId() +" creado con exito");
+    public ResponseEntity<String> createUsuario(@RequestBody UsuarioDTO usuarioTransfer){
+        ResponseEntity<String> response = ResponseEntity
+                .status(400)
+                .body("Error al crear el usuario");
+        try{
+            Optional<Long> id = usuarioService.saveUsuario(usuarioTransfer);
+            if(id.isPresent()) response = ResponseEntity.ok("Usuario con id " + id.get() +" creado con exito");
+        } catch (Exception e){
+            System.out.println(e.getMessage());
         }
         return response;
     }

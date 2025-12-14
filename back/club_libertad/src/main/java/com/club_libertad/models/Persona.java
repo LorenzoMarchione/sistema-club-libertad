@@ -38,6 +38,6 @@ public class Persona {
     @Column(nullable = false)
     private Boolean activo;
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "socio_responsable_id", nullable = true)
+    @JoinColumn(name = "socio_responsable_id")
     private Persona socioResponsable;
 }

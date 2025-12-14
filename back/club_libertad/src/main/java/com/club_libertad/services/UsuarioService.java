@@ -25,16 +25,16 @@ public class UsuarioService {
     }
 
     @Transactional
-    public Optional<Usuario> saveUsuario(UsuarioDTO usuario){
-        Usuario u = new Usuario();
-        u.setUsername(usuario.getUsername());
-        u.setPassword(usuario.getPassword());
-        u.setRole(usuario.getRole());
+    public Optional<Long> saveUsuario(UsuarioDTO usuarioTransfer){
+        Usuario usuarioCreate = new Usuario();
+        usuarioCreate.setUsername(usuarioTransfer.getUsername());
+        usuarioCreate.setPassword(usuarioTransfer.getPassword());
+        usuarioCreate.setRole(usuarioTransfer.getRole());
         Persona p = new Persona();
-        p.setId(usuario.getPersonaId());
-        u.setPersona(p);
-        u = usuarioRepository.save(u);
-        return Optional.of(u);
+        p.setId(usuarioTransfer.getPersonaId());
+        usuarioCreate.setPersona(p);
+        Usuario usuarioCreated = usuarioRepository.save(usuarioCreate);
+        return Optional.of(usuarioCreated.getId());
     }
 
     @Transactional(readOnly = true)
