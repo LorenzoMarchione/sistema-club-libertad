@@ -47,7 +47,9 @@ public class PersonaController {
             if(id.isPresent()) response = ResponseEntity.ok("Persona con id " + id.get() + " creada con exito");
         }
         catch (Exception e){
-            System.out.println(e.getMessage());
+            System.out.println("------------------\n"
+                    + e.getMessage()
+                    + "\n------------------");
         }
         return response;
     }

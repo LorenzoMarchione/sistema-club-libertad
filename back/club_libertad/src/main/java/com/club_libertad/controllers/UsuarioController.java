@@ -39,7 +39,9 @@ public class UsuarioController {
             Optional<Long> id = usuarioService.saveUsuario(usuarioTransfer);
             if(id.isPresent()) response = ResponseEntity.ok("Usuario con id " + id.get() +" creado con exito");
         } catch (Exception e){
-            System.out.println(e.getMessage());
+            System.out.println("------------------\n"
+                    + e.getMessage()
+                    + "\n------------------");
         }
         return response;
     }

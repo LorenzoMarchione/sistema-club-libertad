@@ -46,7 +46,9 @@ public class DeporteController {
             if(id.isPresent()) response = ResponseEntity.ok("Deporte con id " + id.get() + " creada con exito");
         }
         catch (Exception e){
-            System.out.println(e.getMessage());
+            System.out.println("------------------\n"
+                    + e.getMessage()
+                    + "\n------------------");
         }
         return response;
     }
@@ -64,8 +66,15 @@ public class DeporteController {
     @Operation(summary = "Elimina un deporte por su id")
     public ResponseEntity<String> deleteDeporte(@PathVariable Long id){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        boolean b = deporteService.deleteDeporteById(id);
-        if(b) response = ResponseEntity.ok("Deporte con id " + id + " eliminada con exito");
+        try{
+            boolean b = deporteService.deleteDeporteById(id);
+            if(b) response = ResponseEntity.ok("Deporte con id " + id + " eliminada con exito");
+        }
+        catch (Exception e){
+            System.out.println("------------------\n"
+                    + e.getMessage()
+                    + "\n------------------");
+        }
         return response;
     }
 

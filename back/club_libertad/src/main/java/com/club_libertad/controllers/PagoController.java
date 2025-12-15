@@ -45,7 +45,9 @@ public class PagoController {
             Optional<Long> id = pagoService.savePago(pagoTransfer);
             if(id.isPresent()) response = ResponseEntity.ok("Pago con id " + id.get() + " creado con exito");
         } catch (Exception e){
-            System.out.println(e.getMessage());
+            System.out.println("------------------\n"
+                    + e.getMessage()
+                    + "\n------------------");
         }
         return response;
     }

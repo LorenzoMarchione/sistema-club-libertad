@@ -46,7 +46,9 @@ public class InscripcionController {
             if(id.isPresent()) response = ResponseEntity.ok("Inscripcion con id " + id.get() + " creada con exito");
         }
         catch (Exception e){
-            System.out.println(e.getMessage());
+            System.out.println("------------------\n"
+                    + e.getMessage()
+                    + "\n------------------");
         }
         return response;
     }
