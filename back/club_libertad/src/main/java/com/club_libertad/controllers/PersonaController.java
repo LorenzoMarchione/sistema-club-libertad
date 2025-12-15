@@ -2,6 +2,7 @@ package com.club_libertad.controllers;
 
 import com.club_libertad.dtos.PersonaDTO;
 import com.club_libertad.services.PersonaService;
+import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @RestController(value = "personaController")
 public class PersonaController {
@@ -68,6 +70,30 @@ public class PersonaController {
         boolean b = personaService.updatePersonaParcial(id, persona);
         if(b) response = ResponseEntity.ok("Persona con id " + id + " actualizada con exito");
         return response;
+    }
+
+    @PostMapping("/persona/{personaId}/deporte/{deporteId}")
+    @Operation(summary = "Asocia un deporte a una persona")
+    public ResponseEntity<String> asociarDeporte(@PathVariable Long personaId, @PathVariable Long deporteId) {
+        boolean b = personaService.asociarDeporte(personaId, deporteId);
+        if(b) return ResponseEntity.ok("Deporte asociado correctamente");
+        return ResponseEntity.badRequest().body("Error al asociar deporte");
+    }
+
+    @DeleteMapping("/persona/{personaId}/deporte/{deporteId}")
+    @Operation(summary = "Desasocia un deporte de una persona")
+    public ResponseEntity<String> desasociarDeporte(@PathVariable Long personaId, @PathVariable Long deporteId) {
+        boolean b = personaService.desasociarDeporte(personaId, deporteId);
+        if(b) return ResponseEntity.ok("Deporte desasociado correctamente");
+        return ResponseEntity.badRequest().body("Error al desasociar deporte");
+    }
+
+    @GetMapping("/persona/{personaId}/deportes")
+    @Operation(summary = "Obtiene todos los deportes de una persona")
+    public ResponseEntity<Set<Deporte>> getDeportesByPersona(@PathVariable Long personaId) {
+        Set<Deporte> deportes = personaService.getDeportesByPersonaId(personaId);
+        if(deportes != null) return ResponseEntity.ok(deportes);
+        return ResponseEntity.notFound().build();
     }
 
 }

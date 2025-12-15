@@ -39,6 +39,7 @@ public class CuotaService {
         cuotaCreate.setMonto(cuotaTransfer.getMonto());
         cuotaCreate.setEstado(cuotaTransfer.getEstado());
         if(cuotaTransfer.getFechaVencimiento() != null) cuotaCreate.setFechaVencimiento(cuotaTransfer.getFechaVencimiento());
+        if(cuotaTransfer.getConcepto() != null) cuotaCreate.setConcepto(cuotaTransfer.getConcepto());
         cuotaCreate.setFechaGeneracion(LocalDate.now());
         Cuota cuotaCreated = cuotaRepository.save(cuotaCreate);
         return Optional.of(cuotaCreated.getId());

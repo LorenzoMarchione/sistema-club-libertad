@@ -19,4 +19,6 @@ public class CuotaDTO {
     @Enumerated(EnumType.STRING)
     public EstadoCuota estado;
     public LocalDate fechaVencimiento;
+    public String concepto;
+    public Long pagoId;
 }

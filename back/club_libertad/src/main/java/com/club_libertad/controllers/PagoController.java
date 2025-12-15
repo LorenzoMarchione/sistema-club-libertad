@@ -36,7 +36,7 @@ public class PagoController {
     }
 
     @PostMapping("/pago")
-    @Operation(summary = "Crea un pago", description = "METODOS DE PAGO - 0 = EFECTIVO - 1 = TRANSFERENCIA - 2 = DEBITO_AUTOMATICO")
+    @Operation(summary = "Crea un pago y asocia cuotas", description = "Crea un pago y asocia las cuotas especificadas por sus IDs. Las cuotas asociadas se marcan como PAGADAS. METODOS DE PAGO - 0 = EFECTIVO - 1 = TRANSFERENCIA - 2 = DEBITO_AUTOMATICO")
     public ResponseEntity<String> createPago(@RequestBody PagoDTO pagoTransfer){
         ResponseEntity<String> response = ResponseEntity
                 .status(400)

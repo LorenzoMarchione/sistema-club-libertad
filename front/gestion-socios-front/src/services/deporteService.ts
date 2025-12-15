@@ -45,6 +45,13 @@ const deporteService = {
       throw error;
     });
   },
+
+  getPersonas(deporteId: number) {
+    return api.get(`/deporte/${deporteId}/personas`).catch(error => {
+      console.error('Error al obtener personas del deporte:', error);
+      throw error;
+    });
+  },
 };
 
 export default deporteService;

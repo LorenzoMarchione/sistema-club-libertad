@@ -11,7 +11,9 @@ import { Edit, Trash2, Search, UserPlus, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
+import deporteService from '../services/deporteService';
 import type { Persona } from '../types/persona';
+import type { Deporte } from '../types/deporte';
 
 // Usamos directamente el tipo Persona del backend
 type Socio = Persona & {
@@ -57,6 +59,7 @@ const calcularEdad = (fechaNacimiento: string | null): number => {
 
 export function SociosModule({ userRole }: SociosModuleProps) {
   const [socios, setSocios] = useState<Socio[]>([]);
+  const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [historialRegistros, setHistorialRegistros] = useState<HistorialRegistro[]>([
@@ -103,7 +106,13 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
 
-  const deportesDisponibles = ['Fútbol', 'Tenis', 'Voley', 'Natación'];
+  // Función para obtener nombres de deportes a partir de sus IDs
+  const getDeportesNombres = (deportesIds?: number[]): string[] => {
+    if (!deportesIds || deportesIds.length === 0) return [];
+    return deportesIds
+      .map(id => deportes.find(d => d.id === id)?.nombre)
+      .filter((nombre): nombre is string => nombre !== undefined);
+  };
   
   // Función para formatear fecha
   const formatDate = (dateString: string) => {
@@ -116,9 +125,15 @@ export function SociosModule({ userRole }: SociosModuleProps) {
 
   // Carga limpia de socios desde el backend
   useEffect(() => {
-    const cargarSocios = async () => {
+    const cargarDatos = async () => {
       try {
         setLoading(true);
+        
+        // Cargar deportes
+        const deportesResponse = await deporteService.getAll();
+        setDeportes(Array.isArray(deportesResponse.data) ? deportesResponse.data : []);
+        
+        // Cargar personas/socios
         const response = await personaService.getAll();
         const personas = response.data;
 
@@ -129,11 +144,6 @@ export function SociosModule({ userRole }: SociosModuleProps) {
             ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
             : undefined,
           estado: persona.estado, // Ya está en el formato correcto
-          //=========================================================================
-          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
-          deportes: Array.isArray(persona.deportes) ? persona.deportes : [], // <-- default
-          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
-          //=========================================================================
         }));
 
         setSocios(sociosFormateados);
@@ -146,7 +156,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       }
     };
     
-    cargarSocios();
+    cargarDatos();
   }, []);
 
   // Filtros
@@ -161,7 +171,8 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       (filterCategoria === 'jugador' && socio.categoria === 'JUGADOR') ||
       (filterCategoria === 'socio y jugador' && socio.categoria === 'SOCIOYJUGADOR');
     
-    const matchesDeporte = filterDeporte === 'all' || socio.deportes.includes(filterDeporte);
+    const deportesNombres = getDeportesNombres(socio.deportesIds);
+    const matchesDeporte = filterDeporte === 'all' || deportesNombres.includes(filterDeporte);
     
     return matchesSearch && matchesCategoria && matchesDeporte;
   });
@@ -465,9 +476,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los deportes</SelectItem>
-                    {deportesDisponibles.map((deporte) => (
-                      <SelectItem key={deporte} value={deporte}>
-                        {deporte}
+                    {deportes.map((deporte) => (
+                      <SelectItem key={deporte.id} value={deporte.nombre}>
+                        {deporte.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -521,11 +532,15 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {socio.deportes.map((deporte, idx) => (
-                                <Badge key={idx} variant="secondary" className="text-xs">
-                                  {deporte}
-                                </Badge>
-                              ))}
+                              {getDeportesNombres(socio.deportesIds).length > 0 ? (
+                                getDeportesNombres(socio.deportesIds).map((deporte, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {deporte}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-sm text-gray-400">Sin deportes</span>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>

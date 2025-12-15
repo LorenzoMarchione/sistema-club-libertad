@@ -2,6 +2,7 @@ package com.club_libertad.controllers;
 
 import com.club_libertad.dtos.DeporteDTO;
 import com.club_libertad.models.Deporte;
+import com.club_libertad.models.Persona;
 import com.club_libertad.services.DeporteService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @RestController(value = "/deporteController")
 public class DeporteController {
@@ -67,6 +69,14 @@ public class DeporteController {
         boolean b = deporteService.deleteDeporteById(id);
         if(b) response = ResponseEntity.ok("Deporte con id " + id + " eliminada con exito");
         return response;
+    }
+
+    @GetMapping("/deporte/{deporteId}/personas")
+    @Operation(summary = "Obtiene todas las personas inscritas en un deporte")
+    public ResponseEntity<Set<Persona>> getPersonasByDeporte(@PathVariable Long deporteId) {
+        Set<Persona> personas = deporteService.getPersonasByDeporteId(deporteId);
+        if(personas != null) return ResponseEntity.ok(personas);
+        return ResponseEntity.notFound().build();
     }
 
 }

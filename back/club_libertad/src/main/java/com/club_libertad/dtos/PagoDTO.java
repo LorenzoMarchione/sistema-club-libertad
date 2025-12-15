@@ -8,15 +8,15 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
 public class PagoDTO {
-    public Long socioId;
     public LocalDate fechaPago;
     public BigDecimal montoTotal;
     @Enumerated(EnumType.STRING)
     public MetodoPago metodoPago;
-    private String conceptos;
     private String observaciones;
+    private List<Long> cuotaIds;
 }

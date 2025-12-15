@@ -1,7 +1,9 @@
 package com.club_libertad.services;
 
 import com.club_libertad.dtos.PersonaDTO;
+import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
+import com.club_libertad.repositories.DeporteRepository;
 import com.club_libertad.repositories.PersonaRepository;
 
 import org.springframework.stereotype.Service;
@@ -10,13 +12,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class PersonaService {
     private final PersonaRepository personaRepository;
+    private final DeporteRepository deporteRepository;
 
-    public PersonaService(PersonaRepository personaRepository) {
+    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository) {
         this.personaRepository = personaRepository;
+        this.deporteRepository = deporteRepository;
     }
 
     @Transactional(readOnly = true)
@@ -79,5 +84,35 @@ public class PersonaService {
             b = true;
         }
         return b;
+    }
+
+    @Transactional
+    public boolean asociarDeporte(Long personaId, Long deporteId){
+        Optional<Persona> persona = personaRepository.findById(personaId);
+        Optional<Deporte> deporte = deporteRepository.findById(deporteId);
+        if(persona.isPresent() && deporte.isPresent()){
+            persona.get().getDeportes().add(deporte.get());
+            personaRepository.save(persona.get());
+            return true;
+        }
+        return false;
+    }
+
+    @Transactional
+    public boolean desasociarDeporte(Long personaId, Long deporteId){
+        Optional<Persona> persona = personaRepository.findById(personaId);
+        Optional<Deporte> deporte = deporteRepository.findById(deporteId);
+        if(persona.isPresent() && deporte.isPresent()){
+            persona.get().getDeportes().remove(deporte.get());
+            personaRepository.save(persona.get());
+            return true;
+        }
+        return false;
+    }
+
+    @Transactional(readOnly = true)
+    public Set<Deporte> getDeportesByPersonaId(Long personaId){
+        Optional<Persona> persona = personaRepository.findById(personaId);
+        return persona.map(Persona::getDeportes).orElse(null);
     }
 }

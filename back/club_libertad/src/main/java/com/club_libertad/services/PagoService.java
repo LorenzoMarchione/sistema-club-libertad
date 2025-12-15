@@ -1,8 +1,10 @@
 package com.club_libertad.services;
 
 import com.club_libertad.dtos.PagoDTO;
+import com.club_libertad.enums.EstadoCuota;
+import com.club_libertad.models.Cuota;
 import com.club_libertad.models.Pago;
-import com.club_libertad.models.Persona;
+import com.club_libertad.repositories.CuotaRepository;
 import com.club_libertad.repositories.PagoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,8 +15,11 @@ import java.util.Optional;
 @Service
 public class PagoService {
     private final PagoRepository pagoRepository;
-    public PagoService(PagoRepository pagoRepository) {
+    private final CuotaRepository cuotaRepository;
+    
+    public PagoService(PagoRepository pagoRepository, CuotaRepository cuotaRepository) {
         this.pagoRepository = pagoRepository;
+        this.cuotaRepository = cuotaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -26,15 +31,27 @@ public class PagoService {
     @Transactional
     public Optional<Long> savePago(PagoDTO pagoTransfer){
         Pago pagoCreate = new Pago();
-        Persona personaExisting = new Persona();
-        personaExisting.setId(pagoTransfer.getSocioId());
-        pagoCreate.setSocioId(personaExisting);
         pagoCreate.setFechaPago(pagoTransfer.getFechaPago());
         pagoCreate.setMontoTotal(pagoTransfer.getMontoTotal());
         if(pagoTransfer.getMetodoPago() != null) pagoCreate.setMetodoPago(pagoTransfer.getMetodoPago());
-        if(pagoTransfer.getConceptos() != null) pagoCreate.setConceptos(pagoTransfer.getConceptos());
         if(pagoTransfer.getObservaciones() != null) pagoCreate.setObservaciones(pagoTransfer.getObservaciones());
+        
+        // Save pago first to get its ID
         Pago pagoCreated = pagoRepository.save(pagoCreate);
+        
+        // Associate cuotas with this pago
+        if(pagoTransfer.getCuotaIds() != null && !pagoTransfer.getCuotaIds().isEmpty()) {
+            for(Long cuotaId : pagoTransfer.getCuotaIds()) {
+                Optional<Cuota> cuotaOpt = cuotaRepository.findById(cuotaId);
+                if(cuotaOpt.isPresent()) {
+                    Cuota cuota = cuotaOpt.get();
+                    cuota.setPagoId(pagoCreated);
+                    cuota.setEstado(EstadoCuota.PAGADA);
+                    cuotaRepository.save(cuota);
+                }
+            }
+        }
+        
         return Optional.of(pagoCreated.getId());
     }
 }
