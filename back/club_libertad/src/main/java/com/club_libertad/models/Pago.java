@@ -20,6 +20,9 @@ public class Pago {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "socio_id", nullable = false)
+    private Persona socioId;
     @Column(name = "fecha_pago",nullable = false)
     private LocalDate fechaPago;
     @Column(name = "monto_total",nullable = false, precision = 10, scale = 2)

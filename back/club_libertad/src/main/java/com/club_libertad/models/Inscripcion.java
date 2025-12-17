@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
 
 
 @Entity
@@ -23,7 +23,7 @@ public class Inscripcion {
     @JoinColumn(name = "deporte_id", nullable = false)
     private Deporte deporteId;
     @Column(name = "fecha_inscripcion", nullable = false)
-    private ZonedDateTime fechaInscripcion;
+    private LocalDate fechaInscripcion;
     @Column(name = "fecha_baja")
-    private ZonedDateTime fechaBaja;
+    private LocalDate fechaBaja;
 }

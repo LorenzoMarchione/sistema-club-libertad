@@ -13,6 +13,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 public class PagoDTO {
+    private Long socioId;  
     public LocalDate fechaPago;
     public BigDecimal montoTotal;
     @Enumerated(EnumType.STRING)

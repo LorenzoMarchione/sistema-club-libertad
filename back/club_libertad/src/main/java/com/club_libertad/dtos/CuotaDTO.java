@@ -14,7 +14,7 @@ import java.time.LocalDate;
 public class CuotaDTO {
     public Long personaId;
     public Long deporteId;
-    public LocalDate perido;
+    public LocalDate periodo;
     public BigDecimal monto;
     @Enumerated(EnumType.STRING)
     public EstadoCuota estado;

@@ -4,6 +4,7 @@ import com.club_libertad.dtos.PagoDTO;
 import com.club_libertad.enums.EstadoCuota;
 import com.club_libertad.models.Cuota;
 import com.club_libertad.models.Pago;
+import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.CuotaRepository;
 import com.club_libertad.repositories.PagoRepository;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,9 @@ public class PagoService {
     @Transactional
     public Optional<Long> savePago(PagoDTO pagoTransfer){
         Pago pagoCreate = new Pago();
+        Persona socioExisting = new Persona();
+        socioExisting.setId(pagoTransfer.getSocioId());
+        pagoCreate.setSocioId(socioExisting);
         pagoCreate.setFechaPago(pagoTransfer.getFechaPago());
         pagoCreate.setMontoTotal(pagoTransfer.getMontoTotal());
         if(pagoTransfer.getMetodoPago() != null) pagoCreate.setMetodoPago(pagoTransfer.getMetodoPago());

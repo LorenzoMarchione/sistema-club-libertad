@@ -56,10 +56,27 @@ public class DeporteService {
         return b;
     }
 
+    @Transactional
     public boolean deleteDeporteById(Long id){
-        boolean b = false;
-        deporteRepository.deleteById(id);
-        return b;
+        try {
+            Optional<Deporte> deporte = deporteRepository.findById(id);
+            if(deporte.isPresent()) {
+                // Remove associations with personas first
+                Deporte d = deporte.get();
+                for(Persona persona : d.getPersonas()) {
+                    persona.getDeportes().remove(d);
+                }
+                d.getPersonas().clear();
+                deporteRepository.flush();
+                // Now delete the deporte
+                deporteRepository.deleteById(id);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            System.out.println("Error al eliminar deporte: " + e.getMessage());
+            return false;
+        }
     }
 
     @Transactional(readOnly = true)

@@ -35,7 +35,7 @@ public class CuotaService {
         Deporte deporteExisting = new Deporte();
         deporteExisting.setId(cuotaTransfer.getDeporteId());
         cuotaCreate.setDeporteId(deporteExisting);
-        cuotaCreate.setPeriodo(cuotaTransfer.getPerido());
+        cuotaCreate.setPeriodo(cuotaTransfer.getPeriodo());
         cuotaCreate.setMonto(cuotaTransfer.getMonto());
         cuotaCreate.setEstado(cuotaTransfer.getEstado());
         if(cuotaTransfer.getFechaVencimiento() != null) cuotaCreate.setFechaVencimiento(cuotaTransfer.getFechaVencimiento());
