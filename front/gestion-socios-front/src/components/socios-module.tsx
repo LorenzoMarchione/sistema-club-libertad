@@ -12,8 +12,10 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
 import deporteService from '../services/deporteService';
+import registroService from '../services/registroService';
 import type { Persona } from '../types/persona';
 import type { Deporte } from '../types/deporte';
+import type { Registro } from '../types/registro';
 
 // Usamos directamente el tipo Persona del backend
 type Socio = Persona & {
@@ -31,13 +33,6 @@ interface FormSocio {
   correo?: string | null;
   categoria: 'SOCIO' | 'JUGADOR' | 'SOCIOYJUGADOR';
   estado: 'activo' | 'inactivo';
-}
-
-interface HistorialRegistro {
-  id: string;
-  nombre: string;
-  dni: string;
-  fechaRegistro: string;
 }
 
 interface SociosModuleProps {
@@ -62,38 +57,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [historialRegistros, setHistorialRegistros] = useState<HistorialRegistro[]>([
-    {
-      id: '1',
-      nombre: 'Carlos González',
-      dni: '12345678',
-      fechaRegistro: '2024-01-15T00:00:00',
-    },
-    {
-      id: '2',
-      nombre: 'Lucas González',
-      dni: '98765432',
-      fechaRegistro: '2024-02-10T00:00:00',
-    },
-    {
-      id: '3',
-      nombre: 'Ana Martínez',
-      dni: '23456789',
-      fechaRegistro: '2024-03-05T00:00:00',
-    },
-    {
-      id: '4',
-      nombre: 'Pedro Rodríguez',
-      dni: '34567890',
-      fechaRegistro: '2024-04-20T00:00:00',
-    },
-    {
-      id: '5',
-      nombre: 'María Fernández',
-      dni: '45678901',
-      fechaRegistro: '2024-05-12T00:00:00',
-    },
-  ]);
+  const [historialRegistros, setHistorialRegistros] = useState<Registro[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategoria, setFilterCategoria] = useState<string>('all');
   const [filterDeporte, setFilterDeporte] = useState<string>('all');
@@ -105,6 +69,26 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   });
   
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('socios');
+
+  // Función para cargar registros históricos
+  const cargarRegistros = async () => {
+    try {
+      const registrosResponse = await registroService.getAll();
+      setHistorialRegistros(Array.isArray(registrosResponse.data) ? registrosResponse.data : []);
+    } catch (err) {
+      console.error('Error al cargar registros:', err);
+      toast.error('No se pudieron cargar los registros históricos');
+    }
+  };
+
+  // Manejar cambio de tab
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'historial') {
+      cargarRegistros();
+    }
+  };
 
   // Función para obtener nombres de deportes a partir de sus IDs
   const getDeportesNombres = (deportesIds?: number[]): string[] => {
@@ -147,6 +131,11 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         }));
 
         setSocios(sociosFormateados);
+        
+        // Cargar registros históricos
+        const registrosResponse = await registroService.getAll();
+        setHistorialRegistros(Array.isArray(registrosResponse.data) ? registrosResponse.data : []);
+        
         setError(null);
       } catch (err) {
         console.error('Error al cargar socios:', err);
@@ -178,8 +167,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   });
 
   const filteredHistorial = historialRegistros.filter(registro => {
+    const nombreCompleto = `${registro.apellido} ${registro.nombre}`.toLowerCase();
     return (
-      registro.nombre.toLowerCase().includes(historialSearchTerm.toLowerCase()) ||
+      nombreCompleto.includes(historialSearchTerm.toLowerCase()) ||
       registro.dni.includes(historialSearchTerm)
     );
   });
@@ -434,7 +424,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="socios" className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="socios">
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -624,7 +614,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       filteredHistorial.map((registro, index) => (
                         <TableRow key={registro.id}>
                           <TableCell>{index + 1}</TableCell>
-                          <TableCell>{registro.nombre}</TableCell>
+                          <TableCell>{registro.apellido}, {registro.nombre}</TableCell>
                           <TableCell>{registro.dni}</TableCell>
                           <TableCell>{formatDate(registro.fechaRegistro)}</TableCell>
                         </TableRow>
