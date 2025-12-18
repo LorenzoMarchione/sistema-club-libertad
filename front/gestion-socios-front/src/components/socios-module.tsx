@@ -70,6 +70,37 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('socios');
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean }>({
+    nombre: false,
+    apellido: false,
+    dni: false,
+    fechaNacimiento: false,
+  });
+  const [fechaNacimientoParts, setFechaNacimientoParts] = useState<{ day: string; month: string; year: string }>({
+    day: '',
+    month: '',
+    year: '',
+  });
+
+  const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+  const months = Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1).padStart(2, '0'),
+    label: new Date(2000, i, 1).toLocaleString('es-ES', { month: 'long' }),
+  }));
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 90 }, (_, i) => String(currentYear - i));
+
+  const updateFechaNacimiento = (day: string, month: string, year: string) => {
+    setFechaNacimientoParts({ day, month, year });
+    if (day && month && year) {
+      const composed = `${year}-${month}-${day}`;
+      setFormData(prev => ({ ...prev, fechaNacimiento: composed }));
+      setFormErrors(prev => ({ ...prev, fechaNacimiento: false }));
+    } else {
+      setFormData(prev => ({ ...prev, fechaNacimiento: '' }));
+      setFormErrors(prev => ({ ...prev, fechaNacimiento: true }));
+    }
+  };
 
   // Función para cargar registros históricos
   const cargarRegistros = async () => {
@@ -189,18 +220,40 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         categoria: socio.categoria,
         estado: socio.estado,
       });
+
+      const fecha = socio.fechaNacimiento ? new Date(socio.fechaNacimiento) : null;
+      setFechaNacimientoParts({
+        day: fecha ? String(fecha.getDate()).padStart(2, '0') : '',
+        month: fecha ? String(fecha.getMonth() + 1).padStart(2, '0') : '',
+        year: fecha ? String(fecha.getFullYear()) : '',
+      });
     } else {
       setEditingSocio(null);
       setFormData({
         categoria: 'SOCIO',
         estado: 'activo',
       });
+      setFechaNacimientoParts({ day: '', month: '', year: '' });
     }
+    setFormErrors({ nombre: false, apellido: false, dni: false, fechaNacimiento: false });
     setIsDialogOpen(true);
   };
 
   // Guardar socio (crear o actualizar)
   const handleSave = async () => {
+    const errors = {
+      nombre: !(formData.nombre && formData.nombre.trim().length > 0),
+      apellido: !(formData.apellido && formData.apellido.trim().length > 0),
+      dni: !(formData.dni && formData.dni.trim().length > 0),
+      fechaNacimiento: !(fechaNacimientoParts.day && fechaNacimientoParts.month && fechaNacimientoParts.year),
+    };
+
+    setFormErrors(errors);
+    if (Object.values(errors).some(Boolean)) {
+      toast.error('Completa los campos obligatorios');
+      return;
+    }
+
     try {
       const socioData = {
         nombre: formData.nombre || '',
@@ -319,37 +372,103 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     <Input
                       id="apellido"
                       value={formData.apellido || ''}
-                      onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, apellido: e.target.value });
+                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, apellido: false }));
+                      }}
+                      className={formErrors.apellido ? 'border-red-500 focus-visible:ring-red-500' : ''}
                       required
                     />
+                    {formErrors.apellido && (
+                      <p className="text-xs text-red-600">Completa el apellido</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="nombre">Nombre *</Label>
                     <Input
                       id="nombre"
                       value={formData.nombre || ''}
-                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, nombre: e.target.value });
+                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, nombre: false }));
+                      }}
+                      className={formErrors.nombre ? 'border-red-500 focus-visible:ring-red-500' : ''}
                       required
                     />
+                    {formErrors.nombre && (
+                      <p className="text-xs text-red-600">Completa el nombre</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="dni">DNI *</Label>
                     <Input
                       id="dni"
                       value={formData.dni || ''}
-                      onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, dni: e.target.value });
+                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, dni: false }));
+                      }}
+                      className={formErrors.dni ? 'border-red-500 focus-visible:ring-red-500' : ''}
                       required
                     />
+                    {formErrors.dni && (
+                      <p className="text-xs text-red-600">Completa el DNI</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="fechaNacimiento">Fecha de Nacimiento *</Label>
-                    <Input
-                      id="fechaNacimiento"
-                      type="date"
-                      value={formData.fechaNacimiento || ''}
-                      onChange={(e) => setFormData({ ...formData, fechaNacimiento: e.target.value })}
-                      required
-                    />
+                    <Label>Fecha de Nacimiento *</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Select
+                        value={fechaNacimientoParts.day}
+                        onValueChange={(value) => updateFechaNacimiento(value, fechaNacimientoParts.month, fechaNacimientoParts.year)}
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        required
+                      >
+                        <SelectTrigger aria-label="Día">
+                          <SelectValue placeholder="Día" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {days.map((d) => (
+                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select
+                        value={fechaNacimientoParts.month}
+                        onValueChange={(value) => updateFechaNacimiento(fechaNacimientoParts.day, value, fechaNacimientoParts.year)}
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        required
+                      >
+                        <SelectTrigger aria-label="Mes">
+                          <SelectValue placeholder="Mes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {months.map((m) => (
+                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select
+                        value={fechaNacimientoParts.year}
+                        onValueChange={(value) => updateFechaNacimiento(fechaNacimientoParts.day, fechaNacimientoParts.month, value)}
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        required
+                      >
+                        <SelectTrigger aria-label="Año">
+                          <SelectValue placeholder="Año" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.map((y) => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {formErrors.fechaNacimiento && (
+                      <p className="text-xs text-red-600">Completa día, mes y año</p>
+                    )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="direccion">Dirección *</Label>
