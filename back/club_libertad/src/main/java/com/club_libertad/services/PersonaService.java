@@ -115,4 +115,13 @@ public class PersonaService {
         Optional<Persona> persona = personaRepository.findById(personaId);
         return persona.map(Persona::getDeportes).orElse(null);
     }
+
+    @Transactional
+    public boolean deletePersonaById(Long id){
+        if(personaRepository.existsById(id)){
+            personaRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
 }

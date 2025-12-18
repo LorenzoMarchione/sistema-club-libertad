@@ -62,6 +62,13 @@ const personaService = {
       throw error;
     });
   },
+
+  delete(id: number) {
+    return api.delete<string>(`/persona/${id}`).catch(error => {
+      console.error('Error al eliminar persona:', error);
+      throw error;
+    });
+  },
 };
 
 export default personaService;

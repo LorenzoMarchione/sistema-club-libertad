@@ -268,7 +268,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     
     if (confirm('¿Estás seguro de que deseas eliminar este socio?')) {
       try {
-        await personaService.toggleActive(parseInt(id));
+        await personaService.delete(parseInt(id));
         setSocios(socios.filter(s => s.id !== id));
         toast.success('Socio eliminado correctamente');
       } catch (error) {

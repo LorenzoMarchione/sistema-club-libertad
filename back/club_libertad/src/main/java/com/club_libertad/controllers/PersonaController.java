@@ -96,4 +96,12 @@ public class PersonaController {
         return ResponseEntity.notFound().build();
     }
 
+    @DeleteMapping("/persona/{id}")
+    @Operation(summary = "Elimina una persona por su id")
+    public ResponseEntity<String> deletePersona(@PathVariable Long id) {
+        boolean b = personaService.deletePersonaById(id);
+        if(b) return ResponseEntity.ok("Persona con id " + id + " eliminada con exito");
+        return ResponseEntity.notFound().build();
+    }
+
 }
