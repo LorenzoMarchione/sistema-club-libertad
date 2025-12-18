@@ -29,6 +29,10 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
   const [formData, setFormData] = useState<Omit<Deporte, 'id'>>({ nombre: '', cuotaMensual: 0 });
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
   const [selectedDeportes, setSelectedDeportes] = useState<number[]>([]);
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; cuotaMensual: boolean }>({
+    nombre: false,
+    cuotaMensual: false,
+  });
 
   // Cargar deportes desde el backend
   const loadDeportes = async () => {
@@ -73,10 +77,22 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
       setEditingDeporte(null);
       setFormData({ nombre: '', descripcion: '', cuotaMensual: 0 });
     }
+    setFormErrors({ nombre: false, cuotaMensual: false });
     setIsDialogOpen(true);
   };
 
   const handleSave = async () => {
+    const errors = {
+      nombre: !(formData.nombre && formData.nombre.trim().length > 0),
+      cuotaMensual: !formData.cuotaMensual || formData.cuotaMensual === 0,
+    };
+
+    setFormErrors(errors);
+    if (Object.values(errors).some(Boolean)) {
+      toast.error('Completa los campos obligatorios');
+      return;
+    }
+
     try {
       if (editingDeporte && editingDeporte.id) {
         await deporteService.update(editingDeporte.id, formData);
@@ -277,11 +293,16 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                     <Input
                       id="nombre"
                       value={formData.nombre}
-                      onChange={(e) =>
-                        setFormData({ ...formData, nombre: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, nombre: e.target.value });
+                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, nombre: false }));
+                      }}
+                      className={formErrors.nombre ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
                       required
                     />
+                    {formErrors.nombre && (
+                      <p className="text-xs text-red-600">Completa el nombre del deporte</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="descripcion">Descripción</Label>
@@ -298,17 +319,24 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                     <Input
                       id="cuotaMensual"
                       type="number"
-                      value={formData.cuotaMensual}
-                      onChange={(e) =>
+                      value={formData.cuotaMensual === 0 ? '' : formData.cuotaMensual}
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
-                          cuotaMensual: parseFloat(e.target.value) || 0,
-                        })
-                      }
+                          cuotaMensual: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0,
+                        });
+                        if (e.target.value !== '' && parseFloat(e.target.value) > 0) {
+                          setFormErrors(prev => ({ ...prev, cuotaMensual: false }));
+                        }
+                      }}
                       required
                       min="0"
                       step="0.01"
+                      className={formErrors.cuotaMensual ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
                     />
+                    {formErrors.cuotaMensual && (
+                      <p className="text-xs text-red-600">La cuota mensual debe ser mayor a 0</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">

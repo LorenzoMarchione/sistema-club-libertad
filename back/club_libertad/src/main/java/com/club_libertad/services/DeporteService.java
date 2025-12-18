@@ -38,7 +38,11 @@ public class DeporteService {
         Deporte deporteCreate = new Deporte();
         deporteCreate.setNombre(deporteTransfer.getNombre());
         deporteCreate.setDescripcion(deporteTransfer.getDescripcion());
-        if(deporteTransfer.getCuotaMensual() == null) deporteCreate.setCuotaMensual(BigDecimal.ZERO);
+        if(deporteTransfer.getCuotaMensual() == null) {
+            deporteCreate.setCuotaMensual(BigDecimal.ZERO);
+        } else {
+            deporteCreate.setCuotaMensual(deporteTransfer.getCuotaMensual());
+        }
         Deporte deporteCreated = deporteRepository.save(deporteCreate);
         return Optional.of(deporteCreated.getId());
     }
