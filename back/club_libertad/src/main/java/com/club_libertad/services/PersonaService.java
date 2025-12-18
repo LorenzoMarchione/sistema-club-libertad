@@ -5,6 +5,8 @@ import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.DeporteRepository;
 import com.club_libertad.repositories.PersonaRepository;
+import com.club_libertad.repositories.RegistroRepository;
+import com.club_libertad.models.Registro;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,10 +20,12 @@ import java.util.Set;
 public class PersonaService {
     private final PersonaRepository personaRepository;
     private final DeporteRepository deporteRepository;
+    private final RegistroRepository registroRepository;
 
-    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository) {
+    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository) {
         this.personaRepository = personaRepository;
         this.deporteRepository = deporteRepository;
+        this.registroRepository = registroRepository;
     }
 
     @Transactional(readOnly = true)
@@ -46,7 +50,8 @@ public class PersonaService {
         personaCreate.setDireccion(personaTransfer.getDireccion());
         personaCreate.setCategoria(personaTransfer.getCategoria());
         // Me aseguro que se cree un registro de fecha de registro
-        personaCreate.setFechaRegistro(ZonedDateTime.now());
+        ZonedDateTime fechaRegistro = ZonedDateTime.now();
+        personaCreate.setFechaRegistro(fechaRegistro);
         // Me aseguro de que 'activo' tenga un valor por defecto
         personaCreate.setActivo(true);
         if(personaTransfer.getSocioResponsableId() != null){
@@ -55,6 +60,15 @@ public class PersonaService {
             personaCreate.setSocioResponsable(socioResponsable);
         }
         Persona p = personaRepository.save(personaCreate);
+
+        // Crear registro inmutable asociado a la creación de la persona
+        Registro registro = new Registro();
+        registro.setNombre(personaCreate.getNombre());
+        registro.setApellido(personaCreate.getApellido());
+        registro.setDni(personaCreate.getDni());
+        registro.setFechaRegistro(fechaRegistro);
+        registroRepository.save(registro);
+
         return Optional.of(p.getId());
     }
 
