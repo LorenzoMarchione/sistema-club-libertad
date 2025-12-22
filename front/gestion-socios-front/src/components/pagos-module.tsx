@@ -42,6 +42,11 @@ export function PagosModule({ userRole }: PagosModuleProps) {
     const cargarCuotas = async () => {
       try {
         setLoading(true);
+        
+        // Primero generar cuotas del mes actual si faltan
+        await cuotaService.generarCuotasMesActual();
+        
+        // Luego cargar todas las cuotas
         const response = await cuotaService.getAll();
         const cuotasData = Array.isArray(response.data) ? response.data : [];
         setCuotas(cuotasData);

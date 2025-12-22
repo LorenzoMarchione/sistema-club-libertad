@@ -6,6 +6,7 @@ const CUOTA_ENDPOINTS = {
   GET_BY_ID: (id: number) => `/cuota/${id}`,
   CREATE: '/cuota',
   CHANGE_STATE: (id: number) => `/cuota/${id}`,
+  GENERAR_MES_ACTUAL: '/cuotas/generar-mes-actual',
 };
 
 const cuotaService = {
@@ -33,6 +34,13 @@ const cuotaService = {
   changeState(id: number, estado: EstadoCuota) {
     return api.patch<string>(CUOTA_ENDPOINTS.CHANGE_STATE(id), estado).catch(error => {
       console.error(`Error al actualizar cuota con ID ${id}:`, error);
+      throw error;
+    });
+  },
+
+  generarCuotasMesActual() {
+    return api.post<string>(CUOTA_ENDPOINTS.GENERAR_MES_ACTUAL).catch(error => {
+      console.error('Error al generar cuotas del mes actual:', error);
       throw error;
     });
   },

@@ -12,6 +12,7 @@ import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import deporteService from '../services/deporteService';
 import personaService from '../services/personaService';
+import inscripcionService from '../services/inscripcionService';
 import type { Deporte } from '../types/deporte';
 import type { Persona } from '../types/persona';
 
@@ -147,16 +148,27 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
     try {
       const personaIdNum = parseInt(selectedPersonaId);
       
-      // Asociar cada deporte seleccionado
+      // Asociar cada deporte seleccionado y crear la inscripción correspondiente
+      const hoy = new Date();
+      const yyyy = hoy.getFullYear();
+      const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+      const dd = String(hoy.getDate()).padStart(2, '0');
+      const fechaInscripcion = `${yyyy}-${mm}-${dd}`; // Formato YYYY-MM-DD
+
       for (const deporteId of selectedDeportes) {
         await personaService.asociarDeporte(personaIdNum, deporteId);
+        await inscripcionService.create({
+          personaId: personaIdNum,
+          deporteId,
+          fechaInscripcion,
+        });
       }
-      
-      toast.success(`Persona asociada a ${selectedDeportes.length} deporte(s) correctamente`);
+
+      toast.success(`Persona asociada e inscripta a ${selectedDeportes.length} deporte(s) correctamente`);
       setIsAssociateDialogOpen(false);
       await loadPersonas();
     } catch (error) {
-      toast.error('Error al asociar deportes');
+      toast.error('Error al asociar e inscribir deportes');
       console.error('Error:', error);
     }
   };

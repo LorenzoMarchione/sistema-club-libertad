@@ -11,7 +11,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-@RestController(value = "/cuotaController")
+@RestController
+@RequestMapping
 public class CuotaController {
     private final CuotaService cuotaService;
     public CuotaController(CuotaService cuotaService) {
@@ -58,6 +59,18 @@ public class CuotaController {
         boolean b = cuotaService.changeStateCuota(id, estado);
         if(b) response = ResponseEntity.ok("Estado de la cuota con id " + id + " actualizado con exito");
         return response;
+    }
+
+    @PostMapping("/cuotas/generar-mes-actual")
+    @Operation(summary = "Genera automáticamente las cuotas del mes actual para todas las inscripciones activas")
+    public ResponseEntity<String> generarCuotasMesActual(){
+        try{
+            int cuotasGeneradas = cuotaService.generarCuotasMesActual();
+            return ResponseEntity.ok("Se generaron " + cuotasGeneradas + " cuotas nuevas para el mes actual");
+        } catch (Exception e){
+            System.out.println(e.getMessage());
+            return ResponseEntity.status(500).body("Error al generar cuotas: " + e.getMessage());
+        }
     }
 
 }
