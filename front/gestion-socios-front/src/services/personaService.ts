@@ -41,6 +41,34 @@ const personaService = {
   toggleActive(id: number) {
     return api.patch<string>(PERSONA_ENDPOINTS.TOGGLE_ACTIVE(id));
   },
+
+  asociarDeporte(personaId: number, deporteId: number) {
+    return api.post<string>(`/persona/${personaId}/deporte/${deporteId}`).catch(error => {
+      console.error('Error al asociar deporte:', error);
+      throw error;
+    });
+  },
+
+  desasociarDeporte(personaId: number, deporteId: number) {
+    return api.delete<string>(`/persona/${personaId}/deporte/${deporteId}`).catch(error => {
+      console.error('Error al desasociar deporte:', error);
+      throw error;
+    });
+  },
+
+  getDeportes(personaId: number) {
+    return api.get(`/persona/${personaId}/deportes`).catch(error => {
+      console.error('Error al obtener deportes de la persona:', error);
+      throw error;
+    });
+  },
+
+  delete(id: number) {
+    return api.delete<string>(`/persona/${id}`).catch(error => {
+      console.error('Error al eliminar persona:', error);
+      throw error;
+    });
+  },
 };
 
 export default personaService;

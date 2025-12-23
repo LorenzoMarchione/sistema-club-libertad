@@ -6,12 +6,15 @@ import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
-import { Plus, Edit, Trash2, Users as UsersIcon, DollarSign, Tag, Percent } from 'lucide-react';
+import { Plus, Edit, Trash2, Users as UsersIcon, DollarSign, Tag, Percent, UserPlus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import deporteService from '../services/deporteService';
+import personaService from '../services/personaService';
+import inscripcionService from '../services/inscripcionService';
 import type { Deporte } from '../types/deporte';
+import type { Persona } from '../types/persona';
 
 interface DeportesModuleProps {
   userRole: 'admin' | 'secretario';
@@ -19,10 +22,18 @@ interface DeportesModuleProps {
 
 export function DeportesModule({ userRole }: DeportesModuleProps) {
   const [deportes, setDeportes] = useState<Deporte[]>([]);
+  const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAssociateDialogOpen, setIsAssociateDialogOpen] = useState(false);
   const [editingDeporte, setEditingDeporte] = useState<Deporte | null>(null);
   const [formData, setFormData] = useState<Omit<Deporte, 'id'>>({ nombre: '', cuotaMensual: 0 });
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
+  const [selectedDeportes, setSelectedDeportes] = useState<number[]>([]);
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; cuotaMensual: boolean }>({
+    nombre: false,
+    cuotaMensual: false,
+  });
 
   // Cargar deportes desde el backend
   const loadDeportes = async () => {
@@ -39,8 +50,20 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
     }
   };
 
+  // Cargar personas desde el backend
+  const loadPersonas = async () => {
+    try {
+      const response = await personaService.getAll();
+      const data = response?.data;
+      setPersonas(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading personas:', error);
+    }
+  };
+
   useEffect(() => {
     loadDeportes();
+    loadPersonas();
   }, []);
 
   const handleOpenDialog = (deporte?: Deporte) => {
@@ -55,10 +78,22 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
       setEditingDeporte(null);
       setFormData({ nombre: '', descripcion: '', cuotaMensual: 0 });
     }
+    setFormErrors({ nombre: false, cuotaMensual: false });
     setIsDialogOpen(true);
   };
 
   const handleSave = async () => {
+    const errors = {
+      nombre: !(formData.nombre && formData.nombre.trim().length > 0),
+      cuotaMensual: !formData.cuotaMensual || formData.cuotaMensual === 0,
+    };
+
+    setFormErrors(errors);
+    if (Object.values(errors).some(Boolean)) {
+      toast.error('Completa los campos obligatorios');
+      return;
+    }
+
     try {
       if (editingDeporte && editingDeporte.id) {
         await deporteService.update(editingDeporte.id, formData);
@@ -87,6 +122,54 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
       await loadDeportes();
     } catch (error) {
       toast.error('Error al eliminar el deporte');
+    }
+  };
+
+  const handleOpenAssociateDialog = () => {
+    setSelectedPersonaId('');
+    setSelectedDeportes([]);
+    setIsAssociateDialogOpen(true);
+  };
+
+  const handleToggleDeporte = (deporteId: number) => {
+    setSelectedDeportes(prev =>
+      prev.includes(deporteId)
+        ? prev.filter(id => id !== deporteId)
+        : [...prev, deporteId]
+    );
+  };
+
+  const handleAssociate = async () => {
+    if (!selectedPersonaId || selectedDeportes.length === 0) {
+      toast.error('Selecciona una persona y al menos un deporte');
+      return;
+    }
+
+    try {
+      const personaIdNum = parseInt(selectedPersonaId);
+      
+      // Asociar cada deporte seleccionado y crear la inscripción correspondiente
+      const hoy = new Date();
+      const yyyy = hoy.getFullYear();
+      const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+      const dd = String(hoy.getDate()).padStart(2, '0');
+      const fechaInscripcion = `${yyyy}-${mm}-${dd}`; // Formato YYYY-MM-DD
+
+      for (const deporteId of selectedDeportes) {
+        await personaService.asociarDeporte(personaIdNum, deporteId);
+        await inscripcionService.create({
+          personaId: personaIdNum,
+          deporteId,
+          fechaInscripcion,
+        });
+      }
+
+      toast.success(`Persona asociada e inscripta a ${selectedDeportes.length} deporte(s) correctamente`);
+      setIsAssociateDialogOpen(false);
+      await loadPersonas();
+    } catch (error) {
+      toast.error('Error al asociar e inscribir deportes');
+      console.error('Error:', error);
     }
   };
 
@@ -126,13 +209,91 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
               <CardTitle>Deportes y Actividades</CardTitle>
               <CardDescription>Gestión de deportes ofrecidos por el club</CardDescription>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => handleOpenDialog()}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo Deporte
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+              <Dialog open={isAssociateDialogOpen} onOpenChange={setIsAssociateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" onClick={handleOpenAssociateDialog}>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Asociar Persona
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Asociar Persona a Deportes</DialogTitle>
+                    <DialogDescription>
+                      Selecciona una persona y los deportes a los que deseas inscribirla
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="persona">Persona *</Label>
+                      <Select value={selectedPersonaId} onValueChange={setSelectedPersonaId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una persona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {personas.map((persona) => (
+                            <SelectItem key={persona.id} value={persona.id}>
+                              {persona.nombre} {persona.apellido} - DNI: {persona.dni}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <Label>Deportes *</Label>
+                      <div className="border rounded-lg divide-y max-h-[300px] overflow-y-auto">
+                        {deportes.map((deporte) => (
+                          <div
+                            key={deporte.id}
+                            className="flex items-center space-x-3 p-3 hover:bg-gray-50"
+                          >
+                            <Checkbox
+                              id={`deporte-${deporte.id}`}
+                              checked={selectedDeportes.includes(deporte.id!)}
+                              onCheckedChange={() => handleToggleDeporte(deporte.id!)}
+                            />
+                            <label
+                              htmlFor={`deporte-${deporte.id}`}
+                              className="flex-1 cursor-pointer"
+                            >
+                              <div className="font-medium">{deporte.nombre}</div>
+                              <div className="text-sm text-gray-500">
+                                ${deporte.cuotaMensual.toLocaleString()}/mes
+                              </div>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedDeportes.length > 0 && (
+                        <p className="text-sm text-gray-600">
+                          {selectedDeportes.length} deporte(s) seleccionado(s)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAssociateDialogOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleAssociate}>
+                      Asociar Deportes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => handleOpenDialog()}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nuevo Deporte
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>{editingDeporte ? 'Editar Deporte' : 'Nuevo Deporte'}</DialogTitle>
@@ -144,11 +305,16 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                     <Input
                       id="nombre"
                       value={formData.nombre}
-                      onChange={(e) =>
-                        setFormData({ ...formData, nombre: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, nombre: e.target.value });
+                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, nombre: false }));
+                      }}
+                      className={formErrors.nombre ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
                       required
                     />
+                    {formErrors.nombre && (
+                      <p className="text-xs text-red-600">Completa el nombre del deporte</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="descripcion">Descripción</Label>
@@ -165,17 +331,24 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                     <Input
                       id="cuotaMensual"
                       type="number"
-                      value={formData.cuotaMensual}
-                      onChange={(e) =>
+                      value={formData.cuotaMensual === 0 ? '' : formData.cuotaMensual}
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
-                          cuotaMensual: parseFloat(e.target.value) || 0,
-                        })
-                      }
+                          cuotaMensual: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0,
+                        });
+                        if (e.target.value !== '' && parseFloat(e.target.value) > 0) {
+                          setFormErrors(prev => ({ ...prev, cuotaMensual: false }));
+                        }
+                      }}
                       required
                       min="0"
                       step="0.01"
+                      className={formErrors.cuotaMensual ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
                     />
+                    {formErrors.cuotaMensual && (
+                      <p className="text-xs text-red-600">La cuota mensual debe ser mayor a 0</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
@@ -188,6 +361,7 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

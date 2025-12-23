@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -10,6 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle, Edit, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner@2.0.3';
+import cuotaService from '../services/cuotaService';
+import personaService from '../services/personaService';
+import deporteService from '../services/deporteService';
+import type { Cuota } from '../types/cuota';
+import type { Persona } from '../types/persona';
+import type { Deporte } from '../types/deporte';
 
 interface Pago {
   id: string;
@@ -31,66 +37,71 @@ interface PagosModuleProps {
 }
 
 export function PagosModule({ userRole }: PagosModuleProps) {
-  const [pagos, setPagos] = useState<Pago[]>([
-    {
-      id: '1',
-      socio: 'Carlos González',
-      socioDNI: '12345678',
-      monto: 27000,
-      fecha: '2025-11-01',
-      mes: 'Noviembre 2025',
-      metodoPago: 'debito_automatico',
-      estado: 'pagado',
-      conceptos: [
-        { concepto: 'Cuota Fútbol', monto: 15000 },
-        { concepto: 'Cuota Tenis', monto: 18000 },
-        { concepto: 'Descuento multi-deporte', monto: -6000 },
-      ],
-    },
-    {
-      id: '2',
-      socio: 'Ana Martínez',
-      socioDNI: '23456789',
-      monto: 25500,
-      fecha: '2025-11-05',
-      mes: 'Noviembre 2025',
-      metodoPago: 'transferencia',
-      estado: 'pagado',
-      conceptos: [
-        { concepto: 'Cuota Voley', monto: 12000 },
-        { concepto: 'Cuota Natación', monto: 18000 },
-        { concepto: 'Seguro', monto: 2000 },
-        { concepto: 'Descuento multi-deporte', monto: -3000 },
-        { concepto: 'Mantenimiento', monto: 1500 },
-      ],
-    },
-    {
-      id: '3',
-      socio: 'Lucas González',
-      socioDNI: '98765432',
-      monto: 15000,
-      fecha: '',
-      mes: 'Noviembre 2025',
-      metodoPago: 'debito_automatico',
-      estado: 'pendiente',
-      conceptos: [
-        { concepto: 'Cuota Fútbol', monto: 15000 },
-      ],
-    },
-    {
-      id: '4',
-      socio: 'Roberto Díaz',
-      socioDNI: '34567890',
-      monto: 20000,
-      fecha: '',
-      mes: 'Octubre 2025',
-      metodoPago: 'efectivo',
-      estado: 'vencido',
-      conceptos: [
-        { concepto: 'Cuota Tenis', monto: 20000 },
-      ],
-    },
-  ]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [cuotas, setCuotas] = useState<Cuota[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [deportes, setDeportes] = useState<Deporte[]>([]);
+
+  // Cargar cuotas del backend
+  useEffect(() => {
+    const cargarCuotas = async () => {
+      try {
+        setLoading(true);
+        
+        // Primero generar cuotas del mes actual si faltan
+        await cuotaService.generarCuotasMesActual();
+        
+        // Luego cargar todas las cuotas, personas y deportes en paralelo
+        const [cuotasRes, personasRes, deportesRes] = await Promise.all([
+          cuotaService.getAll(),
+          personaService.getAll(),
+          deporteService.getAll(),
+        ]);
+        const cuotasData = Array.isArray(cuotasRes.data) ? cuotasRes.data : [];
+        const personasData = Array.isArray(personasRes.data) ? personasRes.data : [];
+        const deportesData = Array.isArray(deportesRes.data) ? deportesRes.data : [];
+        setCuotas(cuotasData);
+        setPersonas(personasData);
+        setDeportes(deportesData);
+
+        // Mapear por ID para acceso rápido
+        const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
+        const deporteMap = new Map<number, Deporte>(deportesData.map(d => [Number(d.id), d] as const));
+
+        // Transformar cuotas a pagos para mostrar en la tabla
+        const pagosTransformados = cuotasData.map((cuota, idx) => {
+          const p = personaMap.get(Number(cuota.personaId));
+          const d = deporteMap.get(Number(cuota.deporteId));
+          return {
+            id: (cuota.id || idx).toString(),
+            socio: p ? `${p.nombre} ${p.apellido}` : `Persona ${cuota.personaId}`,
+            socioDNI: p?.dni || '',
+            monto: cuota.monto,
+            fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
+            mes: new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }),
+            metodoPago: 'transferencia' as const,
+            estado: cuota.estado === 'PAGADA' ? 'pagado' : cuota.estado === 'VENCIDA' ? 'vencido' : 'pendiente',
+            conceptos: [
+              {
+                concepto: cuota.concepto || `${d?.nombre || 'Cuota'}`,
+                monto: cuota.monto,
+              },
+            ],
+          } as Pago;
+        });
+
+        setPagos(pagosTransformados);
+      } catch (error) {
+        console.error('Error al cargar cuotas:', error);
+        toast.error('Error al cargar las cuotas');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    cargarCuotas();
+  }, []);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -209,6 +220,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
     totalVencidos: pagos.filter(p => p.estado === 'vencido').reduce((sum, p) => sum + p.monto, 0),
   };
 
+  if (loading) return <div>Cargando cuotas...</div>;
+
   const getEstadoBadge = (estado: string) => {
     const variants = {
       pagado: 'default',
@@ -296,8 +309,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <CardTitle>Gestión de Pagos y Cuotas</CardTitle>
-              <CardDescription>Registro y control de pagos de socios</CardDescription>
+              <CardTitle>Gestión de Cuotas</CardTitle>
+              <CardDescription>Registro y manejo de cuotas</CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={generarArchivoRedLink}>

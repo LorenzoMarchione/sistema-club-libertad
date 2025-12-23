@@ -1,8 +1,12 @@
 package com.club_libertad.services;
 
 import com.club_libertad.dtos.PersonaDTO;
+import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
+import com.club_libertad.repositories.DeporteRepository;
 import com.club_libertad.repositories.PersonaRepository;
+import com.club_libertad.repositories.RegistroRepository;
+import com.club_libertad.models.Registro;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,13 +14,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class PersonaService {
     private final PersonaRepository personaRepository;
+    private final DeporteRepository deporteRepository;
+    private final RegistroRepository registroRepository;
 
-    public PersonaService(PersonaRepository personaRepository) {
+    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository) {
         this.personaRepository = personaRepository;
+        this.deporteRepository = deporteRepository;
+        this.registroRepository = registroRepository;
     }
 
     @Transactional(readOnly = true)
@@ -41,7 +50,8 @@ public class PersonaService {
         personaCreate.setDireccion(personaTransfer.getDireccion());
         personaCreate.setCategoria(personaTransfer.getCategoria());
         // Me aseguro que se cree un registro de fecha de registro
-        personaCreate.setFechaRegistro(ZonedDateTime.now());
+        ZonedDateTime fechaRegistro = ZonedDateTime.now();
+        personaCreate.setFechaRegistro(fechaRegistro);
         // Me aseguro de que 'activo' tenga un valor por defecto
         personaCreate.setActivo(true);
         if(personaTransfer.getSocioResponsableId() != null){
@@ -50,6 +60,15 @@ public class PersonaService {
             personaCreate.setSocioResponsable(socioResponsable);
         }
         Persona p = personaRepository.save(personaCreate);
+
+        // Crear registro inmutable asociado a la creación de la persona
+        Registro registro = new Registro();
+        registro.setNombre(personaCreate.getNombre());
+        registro.setApellido(personaCreate.getApellido());
+        registro.setDni(personaCreate.getDni());
+        registro.setFechaRegistro(fechaRegistro);
+        registroRepository.save(registro);
+
         return Optional.of(p.getId());
     }
 
@@ -79,5 +98,44 @@ public class PersonaService {
             b = true;
         }
         return b;
+    }
+
+    @Transactional
+    public boolean asociarDeporte(Long personaId, Long deporteId){
+        Optional<Persona> persona = personaRepository.findById(personaId);
+        Optional<Deporte> deporte = deporteRepository.findById(deporteId);
+        if(persona.isPresent() && deporte.isPresent()){
+            persona.get().getDeportes().add(deporte.get());
+            personaRepository.save(persona.get());
+            return true;
+        }
+        return false;
+    }
+
+    @Transactional
+    public boolean desasociarDeporte(Long personaId, Long deporteId){
+        Optional<Persona> persona = personaRepository.findById(personaId);
+        Optional<Deporte> deporte = deporteRepository.findById(deporteId);
+        if(persona.isPresent() && deporte.isPresent()){
+            persona.get().getDeportes().remove(deporte.get());
+            personaRepository.save(persona.get());
+            return true;
+        }
+        return false;
+    }
+
+    @Transactional(readOnly = true)
+    public Set<Deporte> getDeportesByPersonaId(Long personaId){
+        Optional<Persona> persona = personaRepository.findById(personaId);
+        return persona.map(Persona::getDeportes).orElse(null);
+    }
+
+    @Transactional
+    public boolean deletePersonaById(Long id){
+        if(personaRepository.existsById(id)){
+            personaRepository.deleteById(id);
+            return true;
+        }
+        return false;
     }
 }

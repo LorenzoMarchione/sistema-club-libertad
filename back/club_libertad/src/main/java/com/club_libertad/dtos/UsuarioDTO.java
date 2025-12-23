@@ -13,5 +13,4 @@ public class UsuarioDTO {
     public String password;
     @Enumerated(EnumType.STRING)
     public RoleUsuario role;
-    public Long personaId;
 }

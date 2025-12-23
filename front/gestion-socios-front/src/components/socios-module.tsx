@@ -11,7 +11,11 @@ import { Edit, Trash2, Search, UserPlus, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
+import deporteService from '../services/deporteService';
+import registroService from '../services/registroService';
 import type { Persona } from '../types/persona';
+import type { Deporte } from '../types/deporte';
+import type { Registro } from '../types/registro';
 
 // Usamos directamente el tipo Persona del backend
 type Socio = Persona & {
@@ -29,13 +33,6 @@ interface FormSocio {
   correo?: string | null;
   categoria: 'SOCIO' | 'JUGADOR' | 'SOCIOYJUGADOR';
   estado: 'activo' | 'inactivo';
-}
-
-interface HistorialRegistro {
-  id: string;
-  nombre: string;
-  dni: string;
-  fechaRegistro: string;
 }
 
 interface SociosModuleProps {
@@ -57,40 +54,10 @@ const calcularEdad = (fechaNacimiento: string | null): number => {
 
 export function SociosModule({ userRole }: SociosModuleProps) {
   const [socios, setSocios] = useState<Socio[]>([]);
+  const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [historialRegistros, setHistorialRegistros] = useState<HistorialRegistro[]>([
-    {
-      id: '1',
-      nombre: 'Carlos González',
-      dni: '12345678',
-      fechaRegistro: '2024-01-15T00:00:00',
-    },
-    {
-      id: '2',
-      nombre: 'Lucas González',
-      dni: '98765432',
-      fechaRegistro: '2024-02-10T00:00:00',
-    },
-    {
-      id: '3',
-      nombre: 'Ana Martínez',
-      dni: '23456789',
-      fechaRegistro: '2024-03-05T00:00:00',
-    },
-    {
-      id: '4',
-      nombre: 'Pedro Rodríguez',
-      dni: '34567890',
-      fechaRegistro: '2024-04-20T00:00:00',
-    },
-    {
-      id: '5',
-      nombre: 'María Fernández',
-      dni: '45678901',
-      fechaRegistro: '2024-05-12T00:00:00',
-    },
-  ]);
+  const [historialRegistros, setHistorialRegistros] = useState<Registro[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategoria, setFilterCategoria] = useState<string>('all');
   const [filterDeporte, setFilterDeporte] = useState<string>('all');
@@ -102,8 +69,65 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   });
   
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('socios');
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean }>({
+    nombre: false,
+    apellido: false,
+    dni: false,
+    fechaNacimiento: false,
+  });
+  const [fechaNacimientoParts, setFechaNacimientoParts] = useState<{ day: string; month: string; year: string }>({
+    day: '',
+    month: '',
+    year: '',
+  });
 
-  const deportesDisponibles = ['Fútbol', 'Tenis', 'Voley', 'Natación'];
+  const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+  const months = Array.from({ length: 12 }, (_, i) => ({
+    value: String(i + 1).padStart(2, '0'),
+    label: new Date(2000, i, 1).toLocaleString('es-ES', { month: 'long' }),
+  }));
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 90 }, (_, i) => String(currentYear - i));
+
+  const updateFechaNacimiento = (day: string, month: string, year: string) => {
+    setFechaNacimientoParts({ day, month, year });
+    if (day && month && year) {
+      const composed = `${year}-${month}-${day}`;
+      setFormData(prev => ({ ...prev, fechaNacimiento: composed }));
+      setFormErrors(prev => ({ ...prev, fechaNacimiento: false }));
+    } else {
+      setFormData(prev => ({ ...prev, fechaNacimiento: '' }));
+      setFormErrors(prev => ({ ...prev, fechaNacimiento: true }));
+    }
+  };
+
+  // Función para cargar registros históricos
+  const cargarRegistros = async () => {
+    try {
+      const registrosResponse = await registroService.getAll();
+      setHistorialRegistros(Array.isArray(registrosResponse.data) ? registrosResponse.data : []);
+    } catch (err) {
+      console.error('Error al cargar registros:', err);
+      toast.error('No se pudieron cargar los registros históricos');
+    }
+  };
+
+  // Manejar cambio de tab
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'historial') {
+      cargarRegistros();
+    }
+  };
+
+  // Función para obtener nombres de deportes a partir de sus IDs
+  const getDeportesNombres = (deportesIds?: number[]): string[] => {
+    if (!deportesIds || deportesIds.length === 0) return [];
+    return deportesIds
+      .map(id => deportes.find(d => d.id === id)?.nombre)
+      .filter((nombre): nombre is string => nombre !== undefined);
+  };
   
   // Función para formatear fecha
   const formatDate = (dateString: string) => {
@@ -116,9 +140,15 @@ export function SociosModule({ userRole }: SociosModuleProps) {
 
   // Carga limpia de socios desde el backend
   useEffect(() => {
-    const cargarSocios = async () => {
+    const cargarDatos = async () => {
       try {
         setLoading(true);
+        
+        // Cargar deportes
+        const deportesResponse = await deporteService.getAll();
+        setDeportes(Array.isArray(deportesResponse.data) ? deportesResponse.data : []);
+        
+        // Cargar personas/socios
         const response = await personaService.getAll();
         const personas = response.data;
 
@@ -129,14 +159,14 @@ export function SociosModule({ userRole }: SociosModuleProps) {
             ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
             : undefined,
           estado: persona.estado, // Ya está en el formato correcto
-          //=========================================================================
-          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
-          deportes: Array.isArray(persona.deportes) ? persona.deportes : [], // <-- default
-          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
-          //=========================================================================
         }));
 
         setSocios(sociosFormateados);
+        
+        // Cargar registros históricos
+        const registrosResponse = await registroService.getAll();
+        setHistorialRegistros(Array.isArray(registrosResponse.data) ? registrosResponse.data : []);
+        
         setError(null);
       } catch (err) {
         console.error('Error al cargar socios:', err);
@@ -146,7 +176,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       }
     };
     
-    cargarSocios();
+    cargarDatos();
   }, []);
 
   // Filtros
@@ -161,14 +191,16 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       (filterCategoria === 'jugador' && socio.categoria === 'JUGADOR') ||
       (filterCategoria === 'socio y jugador' && socio.categoria === 'SOCIOYJUGADOR');
     
-    const matchesDeporte = filterDeporte === 'all' || socio.deportes.includes(filterDeporte);
+    const deportesNombres = getDeportesNombres(socio.deportesIds);
+    const matchesDeporte = filterDeporte === 'all' || deportesNombres.includes(filterDeporte);
     
     return matchesSearch && matchesCategoria && matchesDeporte;
   });
 
   const filteredHistorial = historialRegistros.filter(registro => {
+    const nombreCompleto = `${registro.apellido} ${registro.nombre}`.toLowerCase();
     return (
-      registro.nombre.toLowerCase().includes(historialSearchTerm.toLowerCase()) ||
+      nombreCompleto.includes(historialSearchTerm.toLowerCase()) ||
       registro.dni.includes(historialSearchTerm)
     );
   });
@@ -188,18 +220,40 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         categoria: socio.categoria,
         estado: socio.estado,
       });
+
+      const fecha = socio.fechaNacimiento ? new Date(socio.fechaNacimiento) : null;
+      setFechaNacimientoParts({
+        day: fecha ? String(fecha.getDate()).padStart(2, '0') : '',
+        month: fecha ? String(fecha.getMonth() + 1).padStart(2, '0') : '',
+        year: fecha ? String(fecha.getFullYear()) : '',
+      });
     } else {
       setEditingSocio(null);
       setFormData({
         categoria: 'SOCIO',
         estado: 'activo',
       });
+      setFechaNacimientoParts({ day: '', month: '', year: '' });
     }
+    setFormErrors({ nombre: false, apellido: false, dni: false, fechaNacimiento: false });
     setIsDialogOpen(true);
   };
 
   // Guardar socio (crear o actualizar)
   const handleSave = async () => {
+    const errors = {
+      nombre: !(formData.nombre && formData.nombre.trim().length > 0),
+      apellido: !(formData.apellido && formData.apellido.trim().length > 0),
+      dni: !(formData.dni && formData.dni.trim().length > 0),
+      fechaNacimiento: !(fechaNacimientoParts.day && fechaNacimientoParts.month && fechaNacimientoParts.year),
+    };
+
+    setFormErrors(errors);
+    if (Object.values(errors).some(Boolean)) {
+      toast.error('Completa los campos obligatorios');
+      return;
+    }
+
     try {
       const socioData = {
         nombre: formData.nombre || '',
@@ -257,7 +311,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     
     if (confirm('¿Estás seguro de que deseas eliminar este socio?')) {
       try {
-        await personaService.toggleActive(parseInt(id));
+        await personaService.delete(parseInt(id));
         setSocios(socios.filter(s => s.id !== id));
         toast.success('Socio eliminado correctamente');
       } catch (error) {
@@ -318,37 +372,103 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     <Input
                       id="apellido"
                       value={formData.apellido || ''}
-                      onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, apellido: e.target.value });
+                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, apellido: false }));
+                      }}
+                      className={formErrors.apellido ? 'border-red-500 focus-visible:ring-red-500' : ''}
                       required
                     />
+                    {formErrors.apellido && (
+                      <p className="text-xs text-red-600">Completa el apellido</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="nombre">Nombre *</Label>
                     <Input
                       id="nombre"
                       value={formData.nombre || ''}
-                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, nombre: e.target.value });
+                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, nombre: false }));
+                      }}
+                      className={formErrors.nombre ? 'border-red-500 focus-visible:ring-red-500' : ''}
                       required
                     />
+                    {formErrors.nombre && (
+                      <p className="text-xs text-red-600">Completa el nombre</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="dni">DNI *</Label>
                     <Input
                       id="dni"
                       value={formData.dni || ''}
-                      onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, dni: e.target.value });
+                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, dni: false }));
+                      }}
+                      className={formErrors.dni ? 'border-red-500 focus-visible:ring-red-500' : ''}
                       required
                     />
+                    {formErrors.dni && (
+                      <p className="text-xs text-red-600">Completa el DNI</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="fechaNacimiento">Fecha de Nacimiento *</Label>
-                    <Input
-                      id="fechaNacimiento"
-                      type="date"
-                      value={formData.fechaNacimiento || ''}
-                      onChange={(e) => setFormData({ ...formData, fechaNacimiento: e.target.value })}
-                      required
-                    />
+                    <Label>Fecha de Nacimiento *</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Select
+                        value={fechaNacimientoParts.day}
+                        onValueChange={(value) => updateFechaNacimiento(value, fechaNacimientoParts.month, fechaNacimientoParts.year)}
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        required
+                      >
+                        <SelectTrigger aria-label="Día">
+                          <SelectValue placeholder="Día" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {days.map((d) => (
+                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select
+                        value={fechaNacimientoParts.month}
+                        onValueChange={(value) => updateFechaNacimiento(fechaNacimientoParts.day, value, fechaNacimientoParts.year)}
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        required
+                      >
+                        <SelectTrigger aria-label="Mes">
+                          <SelectValue placeholder="Mes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {months.map((m) => (
+                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select
+                        value={fechaNacimientoParts.year}
+                        onValueChange={(value) => updateFechaNacimiento(fechaNacimientoParts.day, fechaNacimientoParts.month, value)}
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        required
+                      >
+                        <SelectTrigger aria-label="Año">
+                          <SelectValue placeholder="Año" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.map((y) => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {formErrors.fechaNacimiento && (
+                      <p className="text-xs text-red-600">Completa día, mes y año</p>
+                    )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="direccion">Dirección *</Label>
@@ -423,7 +543,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="socios" className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="socios">
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -465,9 +585,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los deportes</SelectItem>
-                    {deportesDisponibles.map((deporte) => (
-                      <SelectItem key={deporte} value={deporte}>
-                        {deporte}
+                    {deportes.map((deporte) => (
+                      <SelectItem key={deporte.id} value={deporte.nombre}>
+                        {deporte.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -521,11 +641,15 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {socio.deportes.map((deporte, idx) => (
-                                <Badge key={idx} variant="secondary" className="text-xs">
-                                  {deporte}
-                                </Badge>
-                              ))}
+                              {getDeportesNombres(socio.deportesIds).length > 0 ? (
+                                getDeportesNombres(socio.deportesIds).map((deporte, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs">
+                                    {deporte}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-sm text-gray-400">Sin deportes</span>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -609,7 +733,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       filteredHistorial.map((registro, index) => (
                         <TableRow key={registro.id}>
                           <TableCell>{index + 1}</TableCell>
-                          <TableCell>{registro.nombre}</TableCell>
+                          <TableCell>{registro.apellido}, {registro.nombre}</TableCell>
                           <TableCell>{registro.dni}</TableCell>
                           <TableCell>{formatDate(registro.fechaRegistro)}</TableCell>
                         </TableRow>

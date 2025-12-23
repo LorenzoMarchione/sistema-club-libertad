@@ -2,7 +2,6 @@ package com.club_libertad.services;
 
 import com.club_libertad.dtos.LoginDTO;
 import com.club_libertad.dtos.UsuarioDTO;
-import com.club_libertad.models.Persona;
 import com.club_libertad.models.Usuario;
 import com.club_libertad.repositories.UsuarioRepository;
 import org.springframework.stereotype.Service;
@@ -30,9 +29,7 @@ public class UsuarioService {
         usuarioCreate.setUsername(usuarioTransfer.getUsername());
         usuarioCreate.setPassword(usuarioTransfer.getPassword());
         usuarioCreate.setRole(usuarioTransfer.getRole());
-        Persona p = new Persona();
-        p.setId(usuarioTransfer.getPersonaId());
-        usuarioCreate.setPersona(p);
+        usuarioCreate.setActivo(true);
         Usuario usuarioCreated = usuarioRepository.save(usuarioCreate);
         return Optional.of(usuarioCreated.getId());
     }
@@ -50,7 +47,7 @@ public class UsuarioService {
         Optional<Usuario> u = getUsuarioByUsername(login.getUsername());
         if(u.isPresent()){
             if(u.get().getPassword().equals(login.getPassword())
-                    && u.get().getPersona().getActivo())
+                    && Boolean.TRUE.equals(u.get().getActivo()))
             {
                 b = true;
             }
@@ -63,17 +60,16 @@ public class UsuarioService {
         boolean b = false;
         Usuario u = usuarioRepository.findById(id).orElse(null);
         if(u != null){
-            Persona persona = u.getPersona();
-            persona.setActivo(!persona.getActivo());
+            u.setActivo(!Boolean.TRUE.equals(u.getActivo()));
             b = true;
         }
         return b;
     }
 
     @Transactional
-    public boolean updateUsuarioParcial(UsuarioDTO usuarioUpdate){
+    public boolean updateUsuarioParcial(Long id, UsuarioDTO usuarioUpdate){
         boolean b = false;
-        Optional<Usuario> usuario = getUsuarioByUsername(usuarioUpdate.getUsername());
+        Optional<Usuario> usuario = usuarioRepository.findById(id);
         if(usuario.isPresent()){
             if(usuarioUpdate.getUsername() != null) usuario.get().setUsername(usuarioUpdate.getUsername());
             if(usuarioUpdate.getPassword() != null) usuario.get().setPassword(usuarioUpdate.getPassword());
@@ -83,4 +79,12 @@ public class UsuarioService {
         return b;
     }
 
+    @Transactional
+    public boolean deleteUsuarioById(Long id){
+        if(usuarioRepository.existsById(id)){
+            usuarioRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
 }
