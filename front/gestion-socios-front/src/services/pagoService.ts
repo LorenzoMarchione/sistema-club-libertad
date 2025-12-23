@@ -8,6 +8,8 @@ const PAGO_ENDPOINTS = {
 export interface CrearPagoPayload {
   socioId: number;
   fechaPago: string; // YYYY-MM-DD
+  montoOriginal: number;
+  montoDescuento: number;
   montoTotal: number;
   metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEBITO_AUTOMATICO';
   observaciones?: string;
