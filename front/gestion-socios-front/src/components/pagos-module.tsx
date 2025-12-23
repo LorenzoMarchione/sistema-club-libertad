@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,15 +7,17 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle, Edit, Trash2 } from 'lucide-react';
+import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner@2.0.3';
 import cuotaService from '../services/cuotaService';
+import pagoService from '../services/pagoService';
 import personaService from '../services/personaService';
 import deporteService from '../services/deporteService';
 import type { Cuota } from '../types/cuota';
 import type { Persona } from '../types/persona';
 import type { Deporte } from '../types/deporte';
+import { Checkbox } from './ui/checkbox';
 
 interface Pago {
   id: string;
@@ -24,7 +26,7 @@ interface Pago {
   monto: number;
   fecha: string;
   mes: string;
-  metodoPago: 'efectivo' | 'transferencia' | 'debito_automatico';
+  metodoPago: 'EFECTIVO' | 'TRANSFERENCIA' | 'DEBITO_AUTOMATICO';
   estado: 'pagado' | 'pendiente' | 'vencido';
   conceptos: {
     concepto: string;
@@ -43,144 +45,123 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [deportes, setDeportes] = useState<Deporte[]>([]);
 
-  // Cargar cuotas del backend
-  useEffect(() => {
-    const cargarCuotas = async () => {
-      try {
-        setLoading(true);
-        
-        // Primero generar cuotas del mes actual si faltan
-        await cuotaService.generarCuotasMesActual();
-        
-        // Luego cargar todas las cuotas, personas y deportes en paralelo
-        const [cuotasRes, personasRes, deportesRes] = await Promise.all([
-          cuotaService.getAll(),
-          personaService.getAll(),
-          deporteService.getAll(),
-        ]);
-        const cuotasData = Array.isArray(cuotasRes.data) ? cuotasRes.data : [];
-        const personasData = Array.isArray(personasRes.data) ? personasRes.data : [];
-        const deportesData = Array.isArray(deportesRes.data) ? deportesRes.data : [];
-        setCuotas(cuotasData);
-        setPersonas(personasData);
-        setDeportes(deportesData);
+  const cargarCuotas = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        // Mapear por ID para acceso rápido
-        const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
-        const deporteMap = new Map<number, Deporte>(deportesData.map(d => [Number(d.id), d] as const));
+      // Primero generar cuotas del mes actual si faltan
+      await cuotaService.generarCuotasMesActual();
 
-        // Transformar cuotas a pagos para mostrar en la tabla
-        const pagosTransformados = cuotasData.map((cuota, idx) => {
-          const p = personaMap.get(Number(cuota.personaId));
-          const d = deporteMap.get(Number(cuota.deporteId));
-          return {
-            id: (cuota.id || idx).toString(),
-            socio: p ? `${p.nombre} ${p.apellido}` : `Persona ${cuota.personaId}`,
-            socioDNI: p?.dni || '',
-            monto: cuota.monto,
-            fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
-            mes: new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }),
-            metodoPago: 'transferencia' as const,
-            estado: cuota.estado === 'PAGADA' ? 'pagado' : cuota.estado === 'VENCIDA' ? 'vencido' : 'pendiente',
-            conceptos: [
-              {
-                concepto: cuota.concepto || `${d?.nombre || 'Cuota'}`,
-                monto: cuota.monto,
-              },
-            ],
-          } as Pago;
-        });
+      // Luego cargar todas las cuotas, personas y deportes en paralelo
+      const [cuotasRes, personasRes, deportesRes] = await Promise.all([
+        cuotaService.getAll(),
+        personaService.getAll(),
+        deporteService.getAll(),
+      ]);
+      const cuotasData = Array.isArray(cuotasRes.data) ? cuotasRes.data : [];
+      const personasData = Array.isArray(personasRes.data) ? personasRes.data : [];
+      const deportesData = Array.isArray(deportesRes.data) ? deportesRes.data : [];
+      setCuotas(cuotasData);
+      setPersonas(personasData);
+      setDeportes(deportesData);
 
-        setPagos(pagosTransformados);
-      } catch (error) {
-        console.error('Error al cargar cuotas:', error);
-        toast.error('Error al cargar las cuotas');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    cargarCuotas();
+      // Mapear por ID para acceso rápido
+      const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
+      const deporteMap = new Map<number, Deporte>(deportesData.map(d => [Number(d.id), d] as const));
+
+      // Transformar cuotas a pagos para mostrar en la tabla
+      const pagosTransformados = cuotasData.map((cuota, idx) => {
+        const p = personaMap.get(Number(cuota.personaId));
+        const d = deporteMap.get(Number(cuota.deporteId));
+        return {
+          id: (cuota.id || idx).toString(),
+          socio: p ? `${p.nombre} ${p.apellido}` : `Persona ${cuota.personaId}`,
+          socioDNI: p?.dni || '',
+          monto: cuota.monto,
+          fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
+          mes: new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }),
+          metodoPago: 'TRANSFERENCIA' as const,
+          estado: cuota.estado === 'PAGADA' ? 'pagado' : cuota.estado === 'VENCIDA' ? 'vencido' : 'pendiente',
+          conceptos: [
+            {
+              concepto: cuota.concepto || `${d?.nombre || 'Cuota'}`,
+              monto: cuota.monto,
+            },
+          ],
+        } as Pago;
+      });
+
+      setPagos(pagosTransformados);
+    } catch (error) {
+      console.error('Error al cargar cuotas:', error);
+      toast.error('Error al cargar las cuotas');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  // Cargar cuotas del backend al montar
+  useEffect(() => {
+    cargarCuotas();
+  }, [cargarCuotas]);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingPago, setEditingPago] = useState<Pago | null>(null);
-  const [editEstado, setEditEstado] = useState<'pagado' | 'pendiente' | 'vencido'>('pendiente');
-  const [editMetodoPago, setEditMetodoPago] = useState<'efectivo' | 'transferencia' | 'debito_automatico'>('efectivo');
-  
   const [selectedSocio, setSelectedSocio] = useState('');
-  const [conceptos, setConceptos] = useState<{ concepto: string; monto: number }[]>([
-    { concepto: 'Entrenador', monto: 0 },
-    { concepto: 'Seguro', monto: 0 },
-    { concepto: 'Cuota Social', monto: 0 }
-  ]);
-  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'transferencia' | 'debito_automatico'>('efectivo');
-  const [mes, setMes] = useState('');
+  const [selectedCuotas, setSelectedCuotas] = useState<number[]>([]);
+  const [metodoPago, setMetodoPago] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'DEBITO_AUTOMATICO'>('EFECTIVO');
+  const [observaciones, setObservaciones] = useState('');
 
-  // Conceptos predefinidos
-  const conceptosPredefinidos = ['Entrenador', 'Seguro', 'Cuota Social'];
-
-  const mockSocios = [
-    { id: '1', nombre: 'Carlos González', dni: '12345678' },
-    { id: '2', nombre: 'Ana Martínez', dni: '23456789' },
-    { id: '3', nombre: 'Lucas González', dni: '98765432' },
-  ];
-
-  const handleRegistrarPago = () => {
-    if (!selectedSocio || !mes || conceptos.some(c => !c.concepto || c.monto <= 0)) {
-      toast.error('Complete todos los campos requeridos');
+  const handleRegistrarPago = async () => {
+    if (!selectedSocio || selectedCuotas.length === 0) {
+      toast.error('Selecciona un socio y al menos una cuota');
       return;
     }
 
-    const socio = mockSocios.find(s => s.id === selectedSocio);
-    const montoTotal = conceptos.reduce((sum, c) => sum + c.monto, 0);
+    const socio = personas.find(s => String(s.id) === selectedSocio);
+    const cuotasSeleccionadas = cuotas.filter(c => selectedCuotas.includes(Number(c.id)));
+    const montoTotal = cuotasSeleccionadas.reduce((sum, c) => sum + (c.monto || 0), 0);
 
-    const nuevoPago: Pago = {
-      id: Date.now().toString(),
-      socio: socio?.nombre || '',
-      socioDNI: socio?.dni || '',
-      monto: montoTotal,
-      fecha: new Date().toISOString().split('T')[0],
-      mes,
-      metodoPago,
-      estado: 'pagado',
-      conceptos: [...conceptos],
-    };
+    if (montoTotal <= 0) {
+      toast.error('El monto total debe ser mayor a 0');
+      return;
+    }
 
-    setPagos([nuevoPago, ...pagos]);
-    toast.success('Pago registrado correctamente');
-    setIsDialogOpen(false);
-    resetForm();
+    const fechaPago = new Date();
+    const yyyy = fechaPago.getFullYear();
+    const mm = String(fechaPago.getMonth() + 1).padStart(2, '0');
+    const dd = String(fechaPago.getDate()).padStart(2, '0');
+    const fechaPagoStr = `${yyyy}-${mm}-${dd}`;
+
+    try {
+      await pagoService.create({
+        socioId: Number(selectedSocio),
+        fechaPago: fechaPagoStr,
+        montoTotal,
+        metodoPago,
+        observaciones: observaciones.trim() || undefined,
+        cuotaIds: selectedCuotas,
+      });
+
+      toast.success('Pago registrado correctamente');
+      setIsDialogOpen(false);
+      await cargarCuotas();
+      resetForm();
+    } catch (error) {
+      toast.error('Error al registrar el pago');
+      console.error('Error al registrar pago:', error);
+    }
   };
 
   const resetForm = () => {
     setSelectedSocio('');
-    setConceptos([{ concepto: 'Entrenador', monto: 0 }, { concepto: 'Seguro', monto: 0 }, { concepto: 'Cuota Social', monto: 0 }]);
-    setMetodoPago('efectivo');
-    setMes('');
-  };
-
-  const agregarConcepto = () => {
-    setConceptos([...conceptos, { concepto: '', monto: 0 }]);
-  };
-
-  const eliminarConcepto = (index: number) => {
-    setConceptos(conceptos.filter((_, i) => i !== index));
-  };
-
-  const actualizarConcepto = (index: number, field: 'concepto' | 'monto', value: string | number) => {
-    const nuevosConceptos = [...conceptos];
-    nuevosConceptos[index] = {
-      ...nuevosConceptos[index],
-      [field]: value,
-    };
-    setConceptos(nuevosConceptos);
+    setSelectedCuotas([]);
+    setMetodoPago('EFECTIVO');
+    setObservaciones('');
   };
 
   const generarArchivoRedLink = () => {
     // En producción, esto generaría el archivo real según especificaciones de Red Link
-    const pagosPendientes = pagos.filter(p => p.estado === 'pendiente' && p.metodoPago === 'debito_automatico');
+    const pagosPendientes = pagos.filter(p => p.estado === 'pendiente' && p.metodoPago === 'DEBITO_AUTOMATICO');
     
     if (pagosPendientes.length === 0) {
       toast.error('No hay pagos pendientes para débito automático');
@@ -233,38 +214,11 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
   const getMetodoPagoLabel = (metodo: string) => {
     const labels = {
-      efectivo: 'Efectivo',
-      transferencia: 'Transferencia',
-      debito_automatico: 'Débito Automático',
+      EFECTIVO: 'Efectivo',
+      TRANSFERENCIA: 'Transferencia',
+      DEBITO_AUTOMATICO: 'Débito Automático',
     };
     return labels[metodo as keyof typeof labels] || metodo;
-  };
-
-  const handleOpenEditDialog = (pago: Pago) => {
-    setEditingPago(pago);
-    setEditEstado(pago.estado);
-    setEditMetodoPago(pago.metodoPago);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUpdatePago = () => {
-    if (!editingPago) return;
-
-    setPagos(pagos.map(p => {
-      if (p.id === editingPago.id) {
-        return {
-          ...p,
-          estado: editEstado,
-          metodoPago: editMetodoPago,
-          fecha: editEstado === 'pagado' && !p.fecha ? new Date().toISOString().split('T')[0] : p.fecha,
-        };
-      }
-      return p;
-    }));
-
-    toast.success('Pago actualizado correctamente');
-    setIsEditDialogOpen(false);
-    setEditingPago(null);
   };
 
   return (
@@ -336,21 +290,21 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                   <DialogHeader>
                     <DialogTitle>Registrar Nuevo Pago</DialogTitle>
                     <DialogDescription>
-                      Complete los datos del pago y divida en conceptos si es necesario
+                      Selecciona el socio y las cuotas que deseas marcar como pagadas
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Socio *</Label>
-                        <Select value={selectedSocio} onValueChange={setSelectedSocio}>
+                        <Select value={selectedSocio} onValueChange={(v) => { setSelectedSocio(v); setSelectedCuotas([]); }}>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecciona un socio" />
                           </SelectTrigger>
                           <SelectContent>
-                            {mockSocios.map((socio) => (
-                              <SelectItem key={socio.id} value={socio.id}>
-                                {socio.nombre} (DNI: {socio.dni})
+                            {personas.map((socio) => (
+                              <SelectItem key={socio.id} value={String(socio.id)}>
+                                {socio.nombre} {socio.apellido} (DNI: {socio.dni})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -363,49 +317,72 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="efectivo">Efectivo</SelectItem>
-                            <SelectItem value="transferencia">Transferencia</SelectItem>
-                            <SelectItem value="debito_automatico">Débito Automático</SelectItem>
+                            <SelectItem value="EFECTIVO">Efectivo</SelectItem>
+                            <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                            <SelectItem value="DEBITO_AUTOMATICO">Débito Automático</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Mes *</Label>
+                      <Label>Observaciones</Label>
                       <Input
-                        value={mes}
-                        onChange={(e) => setMes(e.target.value)}
-                        placeholder="Ej: Noviembre 2025"
+                        value={observaciones}
+                        onChange={(e) => setObservaciones(e.target.value)}
+                        placeholder="Opcional"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Conceptos de Pago *</Label>
-                      <div className="space-y-3 border rounded-lg p-3">
-                        {conceptos.map((concepto, index) => (
-                          <div key={index} className="flex gap-2 items-center">
-                            <div className="flex-1 px-3 py-2 bg-gray-50 border rounded-md">
-                              {concepto.concepto}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-500">$</span>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={concepto.monto || ''}
-                                onChange={(e) => actualizarConcepto(index, 'monto', parseFloat(e.target.value) || 0)}
-                                className="w-32"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                        <div className="pt-2 border-t flex justify-between">
-                          <span>Total:</span>
-                          <span className="font-semibold">
-                            ${conceptos.reduce((sum, c) => sum + (c.monto || 0), 0).toLocaleString()}
-                          </span>
-                        </div>
+                      <Label>Cuotas a pagar *</Label>
+                      <div className="border rounded-lg divide-y max-h-[260px] overflow-y-auto">
+                        {cuotas
+                          .filter(c => selectedSocio && Number(c.personaId) === Number(selectedSocio) && c.estado !== 'PAGADA')
+                          .map(cuota => {
+                            const deporte = deportes.find(d => Number(d.id) === Number(cuota.deporteId));
+                            const checked = selectedCuotas.includes(Number(cuota.id));
+                            return (
+                              <div key={cuota.id} className="flex items-center gap-3 p-3">
+                                <Checkbox
+                                  id={`cuota-${cuota.id}`}
+                                  checked={checked}
+                                  onCheckedChange={(val) => {
+                                    if (val) {
+                                      setSelectedCuotas(prev => [...prev, Number(cuota.id)]);
+                                    } else {
+                                      setSelectedCuotas(prev => prev.filter(id => id !== Number(cuota.id)));
+                                    }
+                                  }}
+                                />
+                                <label htmlFor={`cuota-${cuota.id}`} className="flex-1 cursor-pointer">
+                                  <div className="font-medium flex items-center gap-2">
+                                    {deporte?.nombre || 'Cuota'}
+                                    <Badge variant="outline" className="text-xs">{cuota.estado}</Badge>
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    Periodo: {new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' })}
+                                  </div>
+                                </label>
+                                <div className="text-sm font-semibold">${(cuota.monto || 0).toLocaleString()}</div>
+                              </div>
+                            );
+                          })}
+                        {selectedSocio && cuotas.filter(c => Number(c.personaId) === Number(selectedSocio) && c.estado !== 'PAGADA').length === 0 && (
+                          <div className="p-3 text-sm text-gray-500">No hay cuotas pendientes para este socio</div>
+                        )}
+                        {!selectedSocio && (
+                          <div className="p-3 text-sm text-gray-500">Selecciona un socio para ver sus cuotas</div>
+                        )}
+                      </div>
+                      <div className="flex justify-between text-sm text-gray-700">
+                        <span>Total seleccionado:</span>
+                        <span className="font-semibold">
+                          ${cuotas
+                            .filter(c => selectedCuotas.includes(Number(c.id)))
+                            .reduce((sum, c) => sum + (c.monto || 0), 0)
+                            .toLocaleString()}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -445,7 +422,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                         <TableHead>Método</TableHead>
                         <TableHead>Fecha</TableHead>
                         <TableHead>Estado</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -490,15 +466,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                                 {pago.estado}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEditDialog(pago)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </TableCell>
                           </TableRow>
                         ))}
                     </TableBody>
@@ -510,85 +477,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
         </CardContent>
       </Card>
 
-      {/* Diálogo de edición de pago */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar Pago</DialogTitle>
-            <DialogDescription>
-              Modifica el estado del pago
-            </DialogDescription>
-          </DialogHeader>
-          {editingPago && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label className="text-sm">Socio</Label>
-                <div className="p-2 bg-gray-50 rounded border">
-                  {editingPago.socio} (DNI: {editingPago.socioDNI})
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Mes</Label>
-                <div className="p-2 bg-gray-50 rounded border">
-                  {editingPago.mes}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Monto Total</Label>
-                <div className="p-2 bg-gray-50 rounded border">
-                  ${editingPago.monto.toLocaleString()}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-metodo">Método de Pago</Label>
-                <Select value={editMetodoPago} onValueChange={(v: any) => setEditMetodoPago(v as any)}>
-                  <SelectTrigger id="edit-metodo">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="efectivo">Efectivo</SelectItem>
-                    <SelectItem value="transferencia">Transferencia</SelectItem>
-                    <SelectItem value="debito_automatico">Débito Automático</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-estado">Estado del Pago</Label>
-                <Select value={editEstado} onValueChange={(v: any) => setEditEstado(v as any)}>
-                  <SelectTrigger id="edit-estado">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pendiente">Pendiente</SelectItem>
-                    <SelectItem value="vencido">Vencido</SelectItem>
-                    <SelectItem value="pagado">Pagado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {editEstado === 'pagado' && !editingPago.fecha && (
-                <div className="bg-blue-50 p-3 rounded-lg text-sm">
-                  <p className="text-blue-800">
-                    ℹ️ Al cambiar el estado a "Pagado", se registrará la fecha actual como fecha de pago.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleUpdatePago}>
-              Guardar Cambios
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
