@@ -44,6 +44,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [loading, setLoading] = useState(true);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [deportes, setDeportes] = useState<Deporte[]>([]);
+  const [pagosServidor, setPagosServidor] = useState<any[]>([]);
 
   const cargarCuotas = useCallback(async () => {
     try {
@@ -53,10 +54,11 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       await cuotaService.generarCuotasMesActual();
 
       // Luego cargar todas las cuotas, personas y deportes en paralelo
-      const [cuotasRes, personasRes, deportesRes] = await Promise.all([
+      const [cuotasRes, personasRes, deportesRes, pagosRes] = await Promise.all([
         cuotaService.getAll(),
         personaService.getAll(),
         deporteService.getAll(),
+        pagoService.getAll(),
       ]);
       const cuotasData = Array.isArray(cuotasRes.data) ? cuotasRes.data : [];
       const personasData = Array.isArray(personasRes.data) ? personasRes.data : [];
@@ -64,6 +66,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       setCuotas(cuotasData);
       setPersonas(personasData);
       setDeportes(deportesData);
+      setPagosServidor(Array.isArray(pagosRes.data) ? pagosRes.data : []);
 
       // Mapear por ID para acceso rápido
       const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
@@ -402,10 +405,11 @@ export function PagosModule({ userRole }: PagosModuleProps) {
         <CardContent>
           <Tabs defaultValue="todos">
             <TabsList>
-              <TabsTrigger value="todos">Todos</TabsTrigger>
-              <TabsTrigger value="pagados">Pagados</TabsTrigger>
+              <TabsTrigger value="todos">Cuotas</TabsTrigger>
+              <TabsTrigger value="pagados">Pagadas</TabsTrigger>
               <TabsTrigger value="pendientes">Pendientes</TabsTrigger>
-              <TabsTrigger value="vencidos">Vencidos</TabsTrigger>
+              <TabsTrigger value="vencidos">Vencidas</TabsTrigger>
+              <TabsTrigger value="pagos">Pagos</TabsTrigger>
             </TabsList>
 
             {['todos', 'pagados', 'pendientes', 'vencidos'].map((tab) => (
@@ -473,6 +477,46 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                 </div>
               </TabsContent>
             ))}
+
+            {/* Lista alterna de Pagos */}
+            <TabsContent value="pagos">
+              <div className="border rounded-lg overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre y Apellido</TableHead>
+                      <TableHead>DNI</TableHead>
+                      <TableHead>Cuotas Pagadas</TableHead>
+                      <TableHead>Monto Total</TableHead>
+                      <TableHead>Fecha de Pago</TableHead>
+                      <TableHead>Observaciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.isArray(pagosServidor) && pagosServidor.length > 0 ? (
+                      pagosServidor.map((pago: any) => {
+                        const socio = pago.socioId; // viene embebido desde backend
+                        const cuotasDePago = cuotas.filter(c => Number(c.pagoId) === Number(pago.id));
+                        return (
+                          <TableRow key={pago.id}>
+                            <TableCell>{socio ? `${socio.nombre} ${socio.apellido}` : '—'}</TableCell>
+                            <TableCell>{socio?.dni || '—'}</TableCell>
+                            <TableCell>{cuotasDePago.length}</TableCell>
+                            <TableCell>${(pago.montoTotal || 0).toLocaleString()}</TableCell>
+                            <TableCell>{pago.fechaPago ? new Date(pago.fechaPago).toLocaleDateString('es-ES') : '—'}</TableCell>
+                            <TableCell>{pago.observaciones || '—'}</TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-gray-500">No hay pagos registrados</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@ import api from './api';
 
 const PAGO_ENDPOINTS = {
   CREATE: '/pago',
+  GET_ALL: '/pagos',
 };
 
 export interface CrearPagoPayload {
@@ -14,6 +15,12 @@ export interface CrearPagoPayload {
 }
 
 const pagoService = {
+  getAll() {
+    return api.get(PAGO_ENDPOINTS.GET_ALL).catch(error => {
+      console.error('Error al obtener pagos:', error);
+      throw error;
+    });
+  },
   create(payload: CrearPagoPayload) {
     return api.post<string>(PAGO_ENDPOINTS.CREATE, payload).catch(error => {
       console.error('Error al crear pago:', error);
