@@ -3,6 +3,7 @@ package com.club_libertad.models;
 import com.club_libertad.dtos.CuotaDTO;
 import com.club_libertad.enums.EstadoCuota;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -47,4 +48,19 @@ public class Cuota {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pago_id")
     private Pago pagoId;
+
+    @JsonProperty("personaId")
+    public Long getPersonaIdValue() {
+        return personaId != null ? personaId.getId() : null;
+    }
+
+    @JsonProperty("deporteId")
+    public Long getDeporteIdValue() {
+        return deporteId != null ? deporteId.getId() : null;
+    }
+
+    @JsonProperty("pagoId")
+    public Long getPagoIdValue() {
+        return pagoId != null ? pagoId.getId() : null;
+    }
 }

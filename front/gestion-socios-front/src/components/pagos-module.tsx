@@ -11,7 +11,11 @@ import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle, Edit, Tr
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner@2.0.3';
 import cuotaService from '../services/cuotaService';
+import personaService from '../services/personaService';
+import deporteService from '../services/deporteService';
 import type { Cuota } from '../types/cuota';
+import type { Persona } from '../types/persona';
+import type { Deporte } from '../types/deporte';
 
 interface Pago {
   id: string;
@@ -36,6 +40,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [cuotas, setCuotas] = useState<Cuota[]>([]);
   const [loading, setLoading] = useState(true);
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [deportes, setDeportes] = useState<Deporte[]>([]);
 
   // Cargar cuotas del backend
   useEffect(() => {
@@ -46,29 +52,45 @@ export function PagosModule({ userRole }: PagosModuleProps) {
         // Primero generar cuotas del mes actual si faltan
         await cuotaService.generarCuotasMesActual();
         
-        // Luego cargar todas las cuotas
-        const response = await cuotaService.getAll();
-        const cuotasData = Array.isArray(response.data) ? response.data : [];
+        // Luego cargar todas las cuotas, personas y deportes en paralelo
+        const [cuotasRes, personasRes, deportesRes] = await Promise.all([
+          cuotaService.getAll(),
+          personaService.getAll(),
+          deporteService.getAll(),
+        ]);
+        const cuotasData = Array.isArray(cuotasRes.data) ? cuotasRes.data : [];
+        const personasData = Array.isArray(personasRes.data) ? personasRes.data : [];
+        const deportesData = Array.isArray(deportesRes.data) ? deportesRes.data : [];
         setCuotas(cuotasData);
-        
+        setPersonas(personasData);
+        setDeportes(deportesData);
+
+        // Mapear por ID para acceso rápido
+        const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
+        const deporteMap = new Map<number, Deporte>(deportesData.map(d => [Number(d.id), d] as const));
+
         // Transformar cuotas a pagos para mostrar en la tabla
-        const pagosTransformados = cuotasData.map((cuota, idx) => ({
-          id: (cuota.id || idx).toString(),
-          socio: `${cuota.personaId?.nombre || ''} ${cuota.personaId?.apellido || ''}`,
-          socioDNI: cuota.personaId?.dni || '',
-          monto: cuota.monto,
-          fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
-          mes: new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }),
-          metodoPago: 'transferencia' as const,
-          estado: cuota.estado === 'PAGADA' ? 'pagado' : cuota.estado === 'VENCIDA' ? 'vencido' : 'pendiente',
-          conceptos: [
-            {
-              concepto: cuota.concepto || `${cuota.deporteId?.nombre || 'Cuota'}`,
-              monto: cuota.monto,
-            }
-          ]
-        }));
-        
+        const pagosTransformados = cuotasData.map((cuota, idx) => {
+          const p = personaMap.get(Number(cuota.personaId));
+          const d = deporteMap.get(Number(cuota.deporteId));
+          return {
+            id: (cuota.id || idx).toString(),
+            socio: p ? `${p.nombre} ${p.apellido}` : `Persona ${cuota.personaId}`,
+            socioDNI: p?.dni || '',
+            monto: cuota.monto,
+            fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
+            mes: new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }),
+            metodoPago: 'transferencia' as const,
+            estado: cuota.estado === 'PAGADA' ? 'pagado' : cuota.estado === 'VENCIDA' ? 'vencido' : 'pendiente',
+            conceptos: [
+              {
+                concepto: cuota.concepto || `${d?.nombre || 'Cuota'}`,
+                monto: cuota.monto,
+              },
+            ],
+          } as Pago;
+        });
+
         setPagos(pagosTransformados);
       } catch (error) {
         console.error('Error al cargar cuotas:', error);
