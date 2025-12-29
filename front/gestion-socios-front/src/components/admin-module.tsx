@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -11,6 +11,8 @@ import { Shield, UserPlus, Download, Database, AlertTriangle, CheckCircle2 } fro
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Progress } from './ui/progress';
 import { toast } from 'sonner@2.0.3';
+import backupService, { BackupInfo } from '../services/backupService';
+import api from '../services/api';
 
 interface Usuario {
   id: string;
@@ -21,10 +23,10 @@ interface Usuario {
   ultimoAcceso: string;
 }
 
-interface Backup {
-  id: string;
-  fecha: string;
-  tamano: string;
+interface BackupRow {
+  fileName: string;
+  createdAt: string;
+  size: string;
   estado: 'completado' | 'en_proceso' | 'fallido';
 }
 
@@ -56,38 +58,7 @@ export function AdminModule() {
     },
   ]);
 
-  const [backups, setBackups] = useState<Backup[]>([
-    {
-      id: '1',
-      fecha: '2025-11-01 02:00',
-      tamano: '45.2 MB',
-      estado: 'completado',
-    },
-    {
-      id: '2',
-      fecha: '2025-10-01 02:00',
-      tamano: '43.8 MB',
-      estado: 'completado',
-    },
-    {
-      id: '3',
-      fecha: '2025-09-01 02:00',
-      tamano: '42.1 MB',
-      estado: 'completado',
-    },
-    {
-      id: '4',
-      fecha: '2025-08-01 02:00',
-      tamano: '40.5 MB',
-      estado: 'completado',
-    },
-    {
-      id: '5',
-      fecha: '2025-07-01 02:00',
-      tamano: '39.2 MB',
-      estado: 'completado',
-    },
-  ]);
+  const [backups, setBackups] = useState<BackupRow[]>([]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Usuario>>({
@@ -131,38 +102,65 @@ export function AdminModule() {
     toast.success('Estado del usuario actualizado');
   };
 
-  const handleCrearBackup = () => {
-    setIsBackingUp(true);
-    setBackupProgress(0);
-
-    // Simular progreso de backup
-    const interval = setInterval(() => {
-      setBackupProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsBackingUp(false);
-          
-          const nuevoBackup: Backup = {
-            id: Date.now().toString(),
-            fecha: new Date().toLocaleString('es-AR'),
-            tamano: (Math.random() * 10 + 40).toFixed(1) + ' MB',
-            estado: 'completado',
-          };
-          
-          setBackups([nuevoBackup, ...backups.slice(0, 4)]);
-          toast.success('Backup creado correctamente');
-          return 0;
-        }
-        return prev + 10;
-      });
-    }, 200);
+  const cargarBackups = async () => {
+    try {
+      const res = await backupService.list();
+      const data = Array.isArray(res.data) ? res.data : [];
+      const rows: BackupRow[] = data.map((b: BackupInfo) => ({
+        fileName: b.fileName,
+        createdAt: b.createdAt,
+        size: `${(b.sizeBytes / (1024 * 1024)).toFixed(1)} MB`,
+        estado: 'completado',
+      }));
+      setBackups(rows);
+    } catch (error) {
+      console.error('Error al cargar backups:', error);
+    }
   };
 
-  const handleDescargarBackup = (backup: Backup) => {
-    toast.success(`Descargando backup del ${backup.fecha}`);
+  useEffect(() => {
+    cargarBackups();
+  }, []);
+
+  const handleCrearBackup = async () => {
+    try {
+      setIsBackingUp(true);
+      setBackupProgress(20);
+      await backupService.create();
+      setBackupProgress(100);
+      setIsBackingUp(false);
+      toast.success('Backup creado correctamente');
+      cargarBackups();
+    } catch (error) {
+      setIsBackingUp(false);
+      toast.error('Error al crear backup');
+      console.error(error);
+    }
   };
 
-  const handleRestaurarBackup = (backup: Backup) => {
+  const handleDescargarBackup = async (backup: BackupRow) => {
+    try {
+      const baseUrl = api.defaults.baseURL || 'http://localhost:8080';
+      const url = `${baseUrl}${backupService.downloadUrl(backup.fileName)}`;
+      const resp = await fetch(url, { method: 'GET' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = backup.fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      toast.success('Descarga iniciada');
+    } catch (error) {
+      console.error('Error al descargar backup:', error);
+      toast.error('No se pudo descargar el backup');
+    }
+  };
+
+  const handleRestaurarBackup = (backup: BackupRow) => {
     if (confirm('¿Está seguro que desea restaurar este backup? Se perderán los datos actuales.')) {
       toast.success('Backup restaurado correctamente');
     }
@@ -304,7 +302,7 @@ export function AdminModule() {
             <div>
               <CardTitle>Copias de Seguridad</CardTitle>
               <CardDescription>
-                Sistema de backups automáticos mensuales. Se conservan los últimos 5-6 meses.
+                Sistema de backups manuales. Los archivos se generan con pg_dump y se listan aquí.
               </CardDescription>
             </div>
             <Button onClick={handleCrearBackup} disabled={isBackingUp}>
@@ -336,9 +334,9 @@ export function AdminModule() {
               </TableHeader>
               <TableBody>
                 {backups.map((backup) => (
-                  <TableRow key={backup.id}>
-                    <TableCell>{backup.fecha}</TableCell>
-                    <TableCell>{backup.tamano}</TableCell>
+                  <TableRow key={backup.fileName}>
+                    <TableCell>{backup.createdAt}</TableCell>
+                    <TableCell>{backup.size}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
