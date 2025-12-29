@@ -67,6 +67,7 @@ export function AdminModule() {
   });
   const [backupProgress, setBackupProgress] = useState(0);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [restoringFile, setRestoringFile] = useState<string | null>(null);
 
   const handleCrearUsuario = () => {
     if (!formData.nombre || !formData.email) {
@@ -160,9 +161,18 @@ export function AdminModule() {
     }
   };
 
-  const handleRestaurarBackup = (backup: BackupRow) => {
-    if (confirm('¿Está seguro que desea restaurar este backup? Se perderán los datos actuales.')) {
+  const handleRestaurarBackup = async (backup: BackupRow) => {
+    const confirmed = confirm('¿Está seguro que desea restaurar este backup? Se perderán los datos actuales.');
+    if (!confirmed) return;
+    try {
+      setRestoringFile(backup.fileName);
+      await backupService.restore(backup.fileName);
       toast.success('Backup restaurado correctamente');
+    } catch (error) {
+      console.error('Error al restaurar backup:', error);
+      toast.error('No se pudo restaurar el backup');
+    } finally {
+      setRestoringFile(null);
     }
   };
 
@@ -369,9 +379,9 @@ export function AdminModule() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleRestaurarBackup(backup)}
-                          disabled={backup.estado !== 'completado'}
+                          disabled={backup.estado !== 'completado' || restoringFile === backup.fileName || isBackingUp}
                         >
-                          Restaurar
+                          {restoringFile === backup.fileName ? 'Restaurando...' : 'Restaurar'}
                         </Button>
                       </div>
                     </TableCell>

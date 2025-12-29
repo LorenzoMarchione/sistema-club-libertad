@@ -10,6 +10,7 @@ const BACKUP_ENDPOINTS = {
   LIST: '/backups',
   CREATE: '/backup',
   DOWNLOAD: (file: string) => `/backup/${encodeURIComponent(file)}`,
+  RESTORE: (file: string) => `/backup/${encodeURIComponent(file)}/restore`,
 };
 
 const backupService = {
@@ -22,6 +23,12 @@ const backupService = {
   create() {
     return api.post<string>(BACKUP_ENDPOINTS.CREATE).catch(error => {
       console.error('Error al crear backup:', error);
+      throw error;
+    });
+  },
+  restore(file: string) {
+    return api.post<string>(BACKUP_ENDPOINTS.RESTORE(file)).catch(error => {
+      console.error('Error al restaurar backup:', error);
       throw error;
     });
   },

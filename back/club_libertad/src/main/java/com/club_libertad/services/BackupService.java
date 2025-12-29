@@ -4,6 +4,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,6 +54,14 @@ public class BackupService {
         return new DbParams(host, port, dbName);
     }
 
+    private void consumeStream(InputStream is) {
+        new Thread(() -> {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                while (br.readLine() != null) { /* drain */ }
+            } catch (Exception ignored) {}
+        }).start();
+    }
+
     public List<BackupInfo> listBackups() {
         try {
             Path dir = Paths.get(BACKUP_DIR);
@@ -73,6 +84,33 @@ public class BackupService {
         }
     }
 
+    public boolean restoreBackup(String fileName) throws IOException, InterruptedException {
+        DbParams params = parseUrl();
+        Path dir = Paths.get(BACKUP_DIR);
+        Path filePath = dir.resolve(fileName);
+        if (!Files.exists(filePath)) {
+            return false;
+        }
+
+        // Use psql to execute the SQL dump over the existing database
+        List<String> command = List.of(
+                "psql",
+                "-h", params.host(),
+                "-p", params.port(),
+                "-U", datasourceUser,
+                "-d", params.dbName(),
+                "-f", filePath.toAbsolutePath().toString()
+        );
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.environment().put("PGPASSWORD", datasourcePassword);
+        Process process = pb.start();
+        consumeStream(process.getInputStream());
+        consumeStream(process.getErrorStream());
+        int exit = process.waitFor();
+        return exit == 0;
+    }
+
     public Optional<String> createBackup() throws IOException, InterruptedException {
         DbParams params = parseUrl();
         Path dir = Paths.get(BACKUP_DIR);
@@ -87,6 +125,10 @@ public class BackupService {
                 "-h", params.host(),
                 "-p", params.port(),
                 "-U", datasourceUser,
+            "--clean",
+            "--if-exists",
+            "--no-owner",
+            "--no-privileges",
                 "-F", "p",
                 "-f", out.toAbsolutePath().toString(),
                 params.dbName()
@@ -95,8 +137,9 @@ public class BackupService {
         ProcessBuilder pb = new ProcessBuilder(command);
         // Provide password via env var (PGPASSWORD) to avoid interactive prompt
         pb.environment().put("PGPASSWORD", datasourcePassword);
-        pb.redirectErrorStream(true);
         Process process = pb.start();
+        consumeStream(process.getInputStream());
+        consumeStream(process.getErrorStream());
         int exit = process.waitFor();
         if (exit == 0 && Files.exists(out)) {
             return Optional.of(fileName);

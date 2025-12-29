@@ -54,4 +54,18 @@ public class BackupController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
     }
+
+    @PostMapping("/backup/{file}/restore")
+    @Operation(summary = "Restaura la base de datos usando un backup existente")
+    public ResponseEntity<String> restoreBackup(@PathVariable String file) {
+        try {
+            boolean restored = backupService.restoreBackup(file);
+            if (!restored) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok("Backup restaurado: " + file);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error al restaurar backup: " + e.getMessage());
+        }
+    }
 }
