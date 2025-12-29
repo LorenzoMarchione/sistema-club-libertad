@@ -10,6 +10,7 @@ import com.club_libertad.repositories.PagoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,7 +37,23 @@ public class PagoService {
         socioExisting.setId(pagoTransfer.getSocioId());
         pagoCreate.setSocioId(socioExisting);
         pagoCreate.setFechaPago(pagoTransfer.getFechaPago());
-        pagoCreate.setMontoTotal(pagoTransfer.getMontoTotal());
+        // Calcular montoOriginal a partir de las cuotas
+        BigDecimal montoOriginal = BigDecimal.ZERO;
+        if(pagoTransfer.getCuotaIds() != null && !pagoTransfer.getCuotaIds().isEmpty()) {
+            for(Long cuotaId : pagoTransfer.getCuotaIds()) {
+                Optional<Cuota> cuotaOpt = cuotaRepository.findById(cuotaId);
+                if(cuotaOpt.isPresent()) {
+                    Cuota cuota = cuotaOpt.get();
+                    montoOriginal = montoOriginal.add(cuota.getMonto());
+                }
+            }
+        }
+
+        // Si viene informado desde frontend, se usa; si no, se toma 0
+        BigDecimal montoDescuento = pagoTransfer.getMontoDescuento() != null ? pagoTransfer.getMontoDescuento() : BigDecimal.ZERO;
+        pagoCreate.setMontoOriginal(pagoTransfer.getMontoOriginal() != null ? pagoTransfer.getMontoOriginal() : montoOriginal);
+        pagoCreate.setMontoDescuento(montoDescuento);
+        pagoCreate.setMontoTotal(pagoCreate.getMontoOriginal().subtract(montoDescuento));
         if(pagoTransfer.getMetodoPago() != null) pagoCreate.setMetodoPago(pagoTransfer.getMetodoPago());
         if(pagoTransfer.getObservaciones() != null) pagoCreate.setObservaciones(pagoTransfer.getObservaciones());
         

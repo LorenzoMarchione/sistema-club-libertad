@@ -25,6 +25,10 @@ public class Pago {
     private Persona socioId;
     @Column(name = "fecha_pago",nullable = false)
     private LocalDate fechaPago;
+    @Column(name = "monto_original", nullable = false, precision = 10, scale = 2)
+    private BigDecimal montoOriginal;
+    @Column(name = "monto_descuento", nullable = false, precision = 10, scale = 2)
+    private BigDecimal montoDescuento;
     @Column(name = "monto_total",nullable = false, precision = 10, scale = 2)
     private BigDecimal montoTotal;
     @Enumerated(EnumType.STRING)

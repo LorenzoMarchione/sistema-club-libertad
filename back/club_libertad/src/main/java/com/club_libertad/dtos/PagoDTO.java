@@ -15,6 +15,8 @@ import java.util.List;
 public class PagoDTO {
     private Long socioId;  
     public LocalDate fechaPago;
+    public BigDecimal montoOriginal;
+    public BigDecimal montoDescuento;
     public BigDecimal montoTotal;
     @Enumerated(EnumType.STRING)
     public MetodoPago metodoPago;
