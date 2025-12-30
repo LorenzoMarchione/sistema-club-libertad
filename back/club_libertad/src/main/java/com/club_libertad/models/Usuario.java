@@ -25,10 +25,10 @@ public class Usuario {
     @Column(nullable = false)
     private Boolean activo = true;
 
-    @Column(name = "intentos_fallidos", nullable = false)
+    @Column(name = "intentos_fallidos", nullable = false, columnDefinition = "integer default 0")
     private Integer intentosFallidos = 0;
 
-    @Column(name = "bloqueado", nullable = false)
+    @Column(name = "bloqueado", nullable = false, columnDefinition = "boolean default false")
     private Boolean bloqueado = false;
 
     @Column(name = "ultimo_acceso")
