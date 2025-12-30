@@ -24,4 +24,16 @@ public class Usuario {
     private RoleUsuario role;
     @Column(nullable = false)
     private Boolean activo = true;
+
+    @Column(name = "intentos_fallidos", nullable = false)
+    private Integer intentosFallidos = 0;
+
+    @Column(name = "bloqueado", nullable = false)
+    private Boolean bloqueado = false;
+
+    @Column(name = "ultimo_acceso")
+    private java.time.ZonedDateTime ultimoAcceso;
+
+    @Column(name = "ultimo_intento_fallido")
+    private java.time.ZonedDateTime ultimoIntentoFallido;
 }

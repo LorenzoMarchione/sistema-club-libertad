@@ -4,6 +4,7 @@ import com.club_libertad.dtos.LoginDTO;
 import com.club_libertad.dtos.UsuarioDTO;
 import com.club_libertad.models.Usuario;
 import com.club_libertad.repositories.UsuarioRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,9 +14,11 @@ import java.util.Optional;
 @Service
 public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UsuarioService(UsuarioRepository usuarioRepository) {
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -27,7 +30,7 @@ public class UsuarioService {
     public Optional<Long> saveUsuario(UsuarioDTO usuarioTransfer){
         Usuario usuarioCreate = new Usuario();
         usuarioCreate.setUsername(usuarioTransfer.getUsername());
-        usuarioCreate.setPassword(usuarioTransfer.getPassword());
+        usuarioCreate.setPassword(passwordEncoder.encode(usuarioTransfer.getPassword()));
         usuarioCreate.setRole(usuarioTransfer.getRole());
         usuarioCreate.setActivo(true);
         Usuario usuarioCreated = usuarioRepository.save(usuarioCreate);
@@ -72,7 +75,7 @@ public class UsuarioService {
         Optional<Usuario> usuario = usuarioRepository.findById(id);
         if(usuario.isPresent()){
             if(usuarioUpdate.getUsername() != null) usuario.get().setUsername(usuarioUpdate.getUsername());
-            if(usuarioUpdate.getPassword() != null) usuario.get().setPassword(usuarioUpdate.getPassword());
+            if(usuarioUpdate.getPassword() != null) usuario.get().setPassword(passwordEncoder.encode(usuarioUpdate.getPassword()));
             if(usuarioUpdate.getRole() != null) usuario.get().setRole(usuarioUpdate.getRole());
             b = true;
         }
