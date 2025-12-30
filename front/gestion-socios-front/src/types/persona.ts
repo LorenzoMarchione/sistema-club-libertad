@@ -13,6 +13,7 @@ export interface Persona {
   fechaNacimiento: string; // ISO
   socioResponsable?: Persona; // "Nombre Apellido (DNI: XXXXXXXX)"
   deportes: string[]; // reservado para futuro
+  deportesIds?: number[]; // IDs de los deportes asociados
   estado: 'activo' | 'inactivo';
   fechaRegistro: string; // ISO
 }

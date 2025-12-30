@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -9,134 +9,151 @@ import { Badge } from './ui/badge';
 import { Plus, Edit, Trash2, Tag, Percent } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { Textarea } from './ui/textarea';
-
-interface Promocion {
-  id: string;
-  nombre: string;
-  descripcion: string;
-  descuento: number;
-  tipo: 'porcentaje' | 'monto_fijo';
-  activa: boolean;
-}
+import promocionService from '../services/promocionService';
+import type { Promocion } from '../types/promocion';
 
 interface PromocionesModuleProps {
   userRole: 'admin' | 'secretario';
 }
 
 export function PromocionesModule({ userRole }: PromocionesModuleProps) {
-  const [promociones, setPromociones] = useState<Promocion[]>([
-    {
-      id: '1',
-      nombre: 'Multi-deporte',
-      descripcion: 'Descuento para socios que practican más de un deporte',
-      descuento: 10,
-      tipo: 'porcentaje',
-      activa: true,
-    },
-    {
-      id: '2',
-      nombre: 'Familiar',
-      descripcion: 'Descuento para grupos familiares (2 o más miembros de la misma familia)',
-      descuento: 15,
-      tipo: 'porcentaje',
-      activa: true,
-    },
-    {
-      id: '3',
-      nombre: 'Estudiante',
-      descripcion: 'Descuento especial para estudiantes universitarios',
-      descuento: 20,
-      tipo: 'porcentaje',
-      activa: true,
-    },
-    {
-      id: '4',
-      nombre: 'Promoción Verano',
-      descripcion: 'Descuento especial para inscripciones de verano',
-      descuento: 2000,
-      tipo: 'monto_fijo',
-      activa: false,
-    },
-  ]);
-
+  const [promociones, setPromociones] = useState<Promocion[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPromocion, setEditingPromocion] = useState<Promocion | null>(null);
   const [formData, setFormData] = useState<Partial<Promocion>>({
-    tipo: 'porcentaje',
-    activa: true,
+    tipoDescuento: 'PORCENTAJE',
+    activo: true,
   });
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; descuento: boolean }>({
+    nombre: false,
+    descuento: false,
+  });
+
+  // Cargar promociones del backend
+  useEffect(() => {
+    const cargarPromociones = async () => {
+      try {
+        setLoading(true);
+        const response = await promocionService.getAll();
+        const data = Array.isArray(response.data) ? response.data : [];
+        setPromociones(data);
+      } catch (error) {
+        console.error('Error al cargar promociones:', error);
+        toast.error('Error al cargar las promociones');
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargarPromociones();
+  }, []);
 
   const handleOpenDialog = (promocion?: Promocion) => {
     if (promocion) {
       setEditingPromocion(promocion);
-      setFormData(promocion);
+      setFormData({
+        nombre: promocion.nombre,
+        descripcion: promocion.descripcion,
+        tipoDescuento: promocion.tipoDescuento,
+        descuento: promocion.descuento,
+        activo: promocion.activo,
+      });
     } else {
       setEditingPromocion(null);
       setFormData({
-        tipo: 'porcentaje',
-        activa: true,
+        tipoDescuento: 'PORCENTAJE',
+        activo: true,
       });
     }
+    setFormErrors({ nombre: false, descuento: false });
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formData.nombre || !formData.descripcion || !formData.descuento) {
-      toast.error('Complete todos los campos obligatorios');
+  const handleSave = async () => {
+    const errors = {
+      nombre: !(formData.nombre && formData.nombre.trim().length > 0),
+      descuento: !formData.descuento || formData.descuento <= 0,
+    };
+
+    setFormErrors(errors);
+    if (Object.values(errors).some(Boolean)) {
+      toast.error('Completa los campos obligatorios');
       return;
     }
 
-    if (formData.descuento <= 0) {
-      toast.error('El descuento debe ser mayor a 0');
-      return;
-    }
-
-    if (formData.tipo === 'porcentaje' && formData.descuento > 100) {
+    if (formData.tipoDescuento === 'PORCENTAJE' && formData.descuento! > 100) {
       toast.error('El descuento porcentual no puede ser mayor al 100%');
       return;
     }
 
-    if (editingPromocion) {
-      setPromociones(promociones.map(p => 
-        p.id === editingPromocion.id ? { ...formData as Promocion, id: editingPromocion.id } : p
-      ));
-      toast.success('Promoción actualizada correctamente');
-    } else {
-      const nuevaPromocion = {
-        ...formData as Promocion,
-        id: Date.now().toString(),
+    try {
+      const promocionData = {
+        nombre: formData.nombre || '',
+        descripcion: formData.descripcion || '',
+        tipoDescuento: formData.tipoDescuento || 'PORCENTAJE',
+        descuento: formData.descuento || 0,
+        activo: formData.activo !== undefined ? formData.activo : true,
       };
-      setPromociones([...promociones, nuevaPromocion]);
-      toast.success('Promoción creada correctamente');
+
+      if (editingPromocion && editingPromocion.id) {
+        await promocionService.update(editingPromocion.id, promocionData);
+        toast.success('Promoción actualizada correctamente');
+      } else {
+        await promocionService.create(promocionData);
+        toast.success('Promoción creada correctamente');
+      }
+
+      // Recargar lista
+      const response = await promocionService.getAll();
+      setPromociones(Array.isArray(response.data) ? response.data : []);
+
+      setIsDialogOpen(false);
+      setFormData({ tipoDescuento: 'PORCENTAJE', activo: true });
+    } catch (error) {
+      console.error('Error al guardar promoción:', error);
+      toast.error(editingPromocion ? 'Error al actualizar promoción' : 'Error al crear promoción');
     }
-    
-    setIsDialogOpen(false);
-    setFormData({ tipo: 'porcentaje', activa: true });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: number | undefined) => {
+    if (!id) return;
     if (userRole !== 'admin') {
       toast.error('No tienes permisos para eliminar promociones');
       return;
     }
     if (confirm('¿Estás seguro de que deseas eliminar esta promoción?')) {
-      setPromociones(promociones.filter(p => p.id !== id));
-      toast.success('Promoción eliminada correctamente');
+      try {
+        await promocionService.delete(id);
+        setPromociones(promociones.filter(p => p.id !== id));
+        toast.success('Promoción eliminada correctamente');
+      } catch (error) {
+        console.error('Error al eliminar promoción:', error);
+        toast.error('Error al eliminar promoción');
+      }
     }
   };
 
-  const handleToggleActiva = (id: string) => {
-    setPromociones(promociones.map(p => {
-      if (p.id === id) {
-        return { ...p, activa: !p.activa };
-      }
-      return p;
-    }));
-    toast.success('Estado de promoción actualizado');
+  const handleToggleActiva = async (id: number | undefined) => {
+    if (!id) return;
+    const promocion = promociones.find(p => p.id === id);
+    if (!promocion) return;
+
+    try {
+      await promocionService.update(id, { activo: !promocion.activo });
+      setPromociones(promociones.map(p =>
+        p.id === id ? { ...p, activo: !p.activo } : p
+      ));
+      toast.success('Estado de promoción actualizado');
+    } catch (error) {
+      console.error('Error al actualizar promoción:', error);
+      toast.error('Error al actualizar estado');
+    }
   };
 
-  const promocionesActivas = promociones.filter(p => p.activa).length;
-  const promocionesInactivas = promociones.filter(p => !p.activa).length;
+  const promocionesActivas = promociones.filter(p => p.activo).length;
+  const promocionesInactivas = promociones.filter(p => !p.activo).length;
+
+  if (loading) return <div>Cargando promociones...</div>;
 
   return (
     <div className="space-y-6">
@@ -190,15 +207,22 @@ export function PromocionesModule({ userRole }: PromocionesModuleProps) {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nombre">Nombre de la Promoción *</Label>
-                    <Input
-                      id="nombre"
-                      value={formData.nombre || ''}
-                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                      placeholder="Ej: Multi-deporte, Familiar, Estudiante"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nombre">Nombre de la Promoción *</Label>
+                      <Input
+                        id="nombre"
+                        value={formData.nombre || ''}
+                        onChange={(e) => {
+                          setFormData({ ...formData, nombre: e.target.value });
+                          if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, nombre: false }));
+                        }}
+                        className={formErrors.nombre ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
+                        placeholder="Ej: Multi-deporte, Familiar, Estudiante"
+                      />
+                      {formErrors.nombre && (
+                        <p className="text-xs text-red-600">Completa el nombre de la promoción</p>
+                      )}
+                    </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="descripcion">Descripción *</Label>
@@ -216,28 +240,35 @@ export function PromocionesModule({ userRole }: PromocionesModuleProps) {
                       <Label htmlFor="tipo">Tipo de Descuento *</Label>
                       <select
                         id="tipo"
-                        value={formData.tipo}
-                        onChange={(e) => setFormData({ ...formData, tipo: e.target.value as 'porcentaje' | 'monto_fijo' })}
+                        value={formData.tipoDescuento || 'PORCENTAJE'}
+                        onChange={(e) => setFormData({ ...formData, tipoDescuento: e.target.value as 'PORCENTAJE' | 'MONTO_FIJO' })}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <option value="porcentaje">Porcentaje (%)</option>
-                        <option value="monto_fijo">Monto Fijo ($)</option>
+                        <option value="PORCENTAJE">Porcentaje (%)</option>
+                        <option value="MONTO_FIJO">Monto Fijo ($)</option>
                       </select>
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="descuento">
-                        {formData.tipo === 'porcentaje' ? 'Descuento (%) *' : 'Descuento ($) *'}
+                        {formData.tipoDescuento === 'PORCENTAJE' ? 'Descuento (%) *' : 'Descuento ($) *'}
                       </Label>
                       <Input
                         id="descuento"
                         type="number"
-                        value={formData.descuento || ''}
-                        onChange={(e) => setFormData({ ...formData, descuento: parseFloat(e.target.value) })}
-                        placeholder={formData.tipo === 'porcentaje' ? 'Ej: 10' : 'Ej: 2000'}
+                        value={formData.descuento === 0 ? '' : formData.descuento || ''}
+                        onChange={(e) => {
+                          setFormData({ ...formData, descuento: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 });
+                          if (e.target.value !== '' && parseFloat(e.target.value) > 0) setFormErrors(prev => ({ ...prev, descuento: false }));
+                        }}
+                        className={formErrors.descuento ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
+                        placeholder={formData.tipoDescuento === 'PORCENTAJE' ? 'Ej: 10' : 'Ej: 2000'}
                         min="0"
-                        max={formData.tipo === 'porcentaje' ? 100 : undefined}
+                        max={formData.tipoDescuento === 'PORCENTAJE' ? 100 : undefined}
                       />
+                      {formErrors.descuento && (
+                        <p className="text-xs text-red-600">El descuento debe ser mayor a 0</p>
+                      )}
                     </div>
                   </div>
 
@@ -245,8 +276,8 @@ export function PromocionesModule({ userRole }: PromocionesModuleProps) {
                     <input
                       type="checkbox"
                       id="activa"
-                      checked={formData.activa}
-                      onChange={(e) => setFormData({ ...formData, activa: e.target.checked })}
+                      checked={formData.activo || false}
+                      onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
                       className="h-4 w-4 rounded border-gray-300"
                     />
                     <label htmlFor="activa" className="cursor-pointer">
@@ -258,12 +289,12 @@ export function PromocionesModule({ userRole }: PromocionesModuleProps) {
                     <div className="bg-blue-50 p-3 rounded-lg">
                       <p className="text-sm">
                         <strong>Vista previa:</strong> Esta promoción aplicará un descuento de{' '}
-                        {formData.tipo === 'porcentaje' 
+                        {formData.tipoDescuento === 'PORCENTAJE' 
                           ? `${formData.descuento}%`
                           : `$${formData.descuento}`
                         } sobre el monto total.
                       </p>
-                      {formData.tipo === 'porcentaje' && (
+                      {formData.tipoDescuento === 'PORCENTAJE' && (
                         <p className="text-sm text-gray-600 mt-1">
                           Ejemplo: En una cuota de $10,000 se descontarían ${(10000 * formData.descuento / 100).toLocaleString()}, 
                           quedando en ${(10000 - (10000 * formData.descuento / 100)).toLocaleString()}
@@ -296,7 +327,7 @@ export function PromocionesModule({ userRole }: PromocionesModuleProps) {
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+                <TableBody>
                 {promociones.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-gray-500 py-8">
@@ -312,19 +343,19 @@ export function PromocionesModule({ userRole }: PromocionesModuleProps) {
                           <span>{promocion.nombre}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-md">{promocion.descripcion}</TableCell>
+                      <TableCell className="max-w-md">{promocion.descripcion || '—'}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="gap-1">
                           <Percent className="w-3 h-3" />
-                          {promocion.tipo === 'porcentaje' 
+                          {promocion.tipoDescuento === 'PORCENTAJE' 
                             ? `${promocion.descuento}%`
                             : `$${promocion.descuento}`
                           }
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={promocion.activa ? 'default' : 'secondary'}>
-                          {promocion.activa ? 'Activa' : 'Inactiva'}
+                        <Badge variant={promocion.activo ? 'default' : 'secondary'}>
+                          {promocion.activo ? 'Activa' : 'Inactiva'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -334,7 +365,7 @@ export function PromocionesModule({ userRole }: PromocionesModuleProps) {
                             size="sm"
                             onClick={() => handleToggleActiva(promocion.id)}
                           >
-                            {promocion.activa ? 'Desactivar' : 'Activar'}
+                            {promocion.activo ? 'Desactivar' : 'Activar'}
                           </Button>
                           <Button
                             variant="ghost"

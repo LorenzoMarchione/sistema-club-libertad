@@ -66,15 +66,23 @@ public class UsuarioController {
         return response;
     }
 
-    @PatchMapping("/usuario")
-    @Operation(summary = "Actualiza uno o varios campos de un usuario")
-    public ResponseEntity<String> updateUsuario(@RequestBody UsuarioDTO usuarioUpdate){
+    @PatchMapping("/usuario/{id}")
+    @Operation(summary = "Actualiza uno o varios campos de un usuario por id")
+    public ResponseEntity<String> updateUsuario(@PathVariable Long id, @RequestBody UsuarioDTO usuarioUpdate){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        boolean b = usuarioService.updateUsuarioParcial(usuarioUpdate);
+        boolean b = usuarioService.updateUsuarioParcial(id, usuarioUpdate);
         if(b){
             response = ResponseEntity.ok("Usuario actualizado con exito");
         }
         return response;
+    }
+
+    @DeleteMapping("/usuario/{id}")
+    @Operation(summary = "Elimina un usuario por su id")
+    public ResponseEntity<String> deleteUsuario(@PathVariable Long id){
+        boolean b = usuarioService.deleteUsuarioById(id);
+        if(b) return ResponseEntity.ok("Usuario con id " + id + " eliminado con exito");
+        return ResponseEntity.notFound().build();
     }
 
 

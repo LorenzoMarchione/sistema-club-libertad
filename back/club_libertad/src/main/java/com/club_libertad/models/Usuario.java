@@ -22,7 +22,6 @@ public class Usuario {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RoleUsuario role;
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "persona_id", unique = true, nullable = false)
-    private Persona persona;
+    @Column(nullable = false)
+    private Boolean activo = true;
 }

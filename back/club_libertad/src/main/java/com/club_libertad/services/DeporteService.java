@@ -2,19 +2,25 @@ package com.club_libertad.services;
 
 import com.club_libertad.dtos.DeporteDTO;
 import com.club_libertad.models.Deporte;
+import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.DeporteRepository;
+import com.club_libertad.repositories.PersonaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class DeporteService {
     private final DeporteRepository deporteRepository;
-    public DeporteService(DeporteRepository deporteRepository) {
+    private final PersonaRepository personaRepository;
+    
+    public DeporteService(DeporteRepository deporteRepository, PersonaRepository personaRepository) {
         this.deporteRepository = deporteRepository;
+        this.personaRepository = personaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -32,7 +38,11 @@ public class DeporteService {
         Deporte deporteCreate = new Deporte();
         deporteCreate.setNombre(deporteTransfer.getNombre());
         deporteCreate.setDescripcion(deporteTransfer.getDescripcion());
-        if(deporteTransfer.getCuotaMensual() == null) deporteCreate.setCuotaMensual(BigDecimal.ZERO);
+        if(deporteTransfer.getCuotaMensual() == null) {
+            deporteCreate.setCuotaMensual(BigDecimal.ZERO);
+        } else {
+            deporteCreate.setCuotaMensual(deporteTransfer.getCuotaMensual());
+        }
         Deporte deporteCreated = deporteRepository.save(deporteCreate);
         return Optional.of(deporteCreated.getId());
     }
@@ -50,9 +60,32 @@ public class DeporteService {
         return b;
     }
 
+    @Transactional
     public boolean deleteDeporteById(Long id){
-        boolean b = false;
-        deporteRepository.deleteById(id);
-        return b;
+        try {
+            Optional<Deporte> deporte = deporteRepository.findById(id);
+            if(deporte.isPresent()) {
+                // Remove associations with personas first
+                Deporte d = deporte.get();
+                for(Persona persona : d.getPersonas()) {
+                    persona.getDeportes().remove(d);
+                }
+                d.getPersonas().clear();
+                deporteRepository.flush();
+                // Now delete the deporte
+                deporteRepository.deleteById(id);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            System.out.println("Error al eliminar deporte: " + e.getMessage());
+            return false;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Set<Persona> getPersonasByDeporteId(Long deporteId){
+        Optional<Deporte> deporte = deporteRepository.findById(deporteId);
+        return deporte.map(Deporte::getPersonas).orElse(null);
     }
 }
