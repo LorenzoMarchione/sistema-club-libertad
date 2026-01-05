@@ -6,8 +6,7 @@ import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
-import { Plus, Edit, Trash2, Users as UsersIcon, DollarSign, Tag, Percent, UserPlus } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Plus, Edit, Trash2, Users as UsersIcon, DollarSign, Tag, Percent, UserPlus, Check } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import deporteService from '../services/deporteService';
@@ -30,6 +29,7 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
   const [formData, setFormData] = useState<Omit<Deporte, 'id'>>({ nombre: '', cuotaMensual: 0 });
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
   const [selectedDeportes, setSelectedDeportes] = useState<number[]>([]);
+  const [searchPersona, setSearchPersona] = useState<string>('');
   const [formErrors, setFormErrors] = useState<{ nombre: boolean; cuotaMensual: boolean }>({
     nombre: false,
     cuotaMensual: false,
@@ -128,6 +128,7 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
   const handleOpenAssociateDialog = () => {
     setSelectedPersonaId('');
     setSelectedDeportes([]);
+    setSearchPersona('');
     setIsAssociateDialogOpen(true);
   };
 
@@ -227,18 +228,55 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                   <div className="space-y-6 py-4">
                     <div className="space-y-2">
                       <Label htmlFor="persona">Persona *</Label>
-                      <Select value={selectedPersonaId} onValueChange={setSelectedPersonaId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona una persona" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {personas.map((persona) => (
-                            <SelectItem key={persona.id} value={persona.id}>
-                              {persona.nombre} {persona.apellido} - DNI: {persona.dni}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="relative">
+                        <Input
+                          id="search-persona"
+                          type="text"
+                          placeholder="Buscar por nombre, apellido o DNI..."
+                          value={searchPersona}
+                          onChange={(e) => setSearchPersona(e.target.value)}
+                        />
+                        {searchPersona.trim().length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+                            {personas
+                              .filter((persona) => {
+                                const search = searchPersona.toLowerCase().trim();
+                                const nombreCompleto = `${persona.nombre} ${persona.apellido}`.toLowerCase();
+                                return nombreCompleto.includes(search) || 
+                                       persona.dni?.toLowerCase().includes(search);
+                              })
+                              .map((persona) => (
+                                <div
+                                  key={persona.id}
+                                  onClick={() => {
+                                    setSelectedPersonaId(persona.id);
+                                    setSearchPersona(`${persona.nombre} ${persona.apellido} - DNI: ${persona.dni}`);
+                                  }}
+                                  className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 ${
+                                    selectedPersonaId === persona.id ? 'bg-gray-50' : ''
+                                  }`}
+                                >
+                                  {selectedPersonaId === persona.id && (
+                                    <Check className="w-4 h-4 text-green-600" />
+                                  )}
+                                  <span>
+                                    {persona.nombre} {persona.apellido} - DNI: {persona.dni}
+                                  </span>
+                                </div>
+                              ))}
+                            {personas.filter((persona) => {
+                              const search = searchPersona.toLowerCase().trim();
+                              const nombreCompleto = `${persona.nombre} ${persona.apellido}`.toLowerCase();
+                              return nombreCompleto.includes(search) || 
+                                     persona.dni?.toLowerCase().includes(search);
+                            }).length === 0 && (
+                              <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                                No se encontraron personas
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="space-y-3">
@@ -375,6 +413,7 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                     <TableHead>Deporte</TableHead>
                     <TableHead>Descripción</TableHead>
                     <TableHead>Cuota Mensual</TableHead>
+                    <TableHead>Socios</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -390,6 +429,12 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                         <span className="flex items-center gap-1">
                           <DollarSign className="w-4 h-4 text-green-600" />
                           {(deporte.cuotaMensual ?? 0).toLocaleString()}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1">
+                          <UsersIcon className="w-4 h-4 text-blue-600" />
+                          {deporte.numeroSocios ?? 0}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">

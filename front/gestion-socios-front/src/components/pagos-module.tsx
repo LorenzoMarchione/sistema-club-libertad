@@ -49,11 +49,23 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [pagosServidor, setPagosServidor] = useState<any[]>([]);
 
+  // Helper para extraer mes-año de periodo sin problemas de timezone
+  const getMesAno = (periodo: string) => {
+    const [year, month] = periodo.split('-');
+    if (!year || !month) return periodo;
+    const mesNum = parseInt(month, 10);
+    const meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return `${meses[mesNum] || 'mes'} de ${year}`;
+  };
+
   const cargarCuotas = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Primero generar cuotas del mes actual si faltan
+      // Primero actualizar cuotas vencidas
+      await cuotaService.actualizarCuotasVencidas();
+
+      // Luego generar cuotas del mes actual si faltan
       await cuotaService.generarCuotasMesActual();
 
       // Luego cargar todas las cuotas, personas y deportes en paralelo
@@ -87,7 +99,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
           socioDNI: p?.dni || '',
           monto: cuota.monto,
           fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
-          mes: new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }),
+          mes: getMesAno(cuota.periodo),
           metodoPago: 'TRANSFERENCIA' as const,
           estado: cuota.estado === 'PAGADA' ? 'pagado' : cuota.estado === 'VENCIDA' ? 'vencido' : 'pendiente',
           conceptos: [
@@ -230,8 +242,10 @@ export function PagosModule({ userRole }: PagosModuleProps) {
     }
   };
 
+  const hoy = new Date().toISOString().split('T')[0];
   const estadisticas = {
     totalIngresos: pagos.filter(p => p.estado === 'pagado').reduce((sum, p) => sum + p.monto, 0),
+    ingresosDia: pagos.filter(p => p.estado === 'pagado' && p.fecha && p.fecha.startsWith(hoy)).reduce((sum, p) => sum + p.monto, 0),
     totalPendientes: pagos.filter(p => p.estado === 'pendiente').reduce((sum, p) => sum + p.monto, 0),
     totalVencidos: pagos.filter(p => p.estado === 'vencido').reduce((sum, p) => sum + p.monto, 0),
   };
@@ -258,7 +272,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
@@ -267,6 +281,17 @@ export function PagosModule({ userRole }: PagosModuleProps) {
             </CardDescription>
             <CardTitle className="text-green-600">
               ${estadisticas.totalIngresos.toLocaleString()}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-blue-600" />
+              Ingresos del Día
+            </CardDescription>
+            <CardTitle className="text-blue-600">
+              ${estadisticas.ingresosDia.toLocaleString()}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -458,7 +483,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                                     <Badge variant="outline" className="text-xs">{cuota.estado}</Badge>
                                   </div>
                                   <div className="text-sm text-gray-500">
-                                    Periodo: {new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' })}
+                                    Periodo: {getMesAno(cuota.periodo)}
                                   </div>
                                 </label>
                                 <div className="text-sm font-semibold">${(cuota.monto || 0).toLocaleString()}</div>
@@ -518,7 +543,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                         <TableHead>Conceptos</TableHead>
                         <TableHead>Monto</TableHead>
                         <TableHead>Método</TableHead>
-                        <TableHead>Fecha</TableHead>
+                        <TableHead>Fecha del Pago</TableHead>
                         <TableHead>Estado</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -539,11 +564,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                             <TableCell>
                               <div className="text-sm space-y-1">
                                 {pago.conceptos.map((c, idx) => (
-                                  <div key={idx} className="flex justify-between gap-2">
-                                    <span className="text-gray-600">{c.concepto}:</span>
-                                    <span className={c.monto < 0 ? 'text-green-600' : ''}>
-                                      ${c.monto.toLocaleString()}
-                                    </span>
+                                  <div key={idx}>
+                                    <span className="text-gray-600">{c.concepto}</span>
                                   </div>
                                 ))}
                               </div>
@@ -589,7 +611,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                   <TableBody>
                     {Array.isArray(pagosServidor) && pagosServidor.length > 0 ? (
                       pagosServidor.map((pago: any) => {
-                        const socio = pago.socioId; // viene embebido desde backend
+                        const socio = personas.find(p => Number(p.id) === Number(pago.socioId));
                         const cuotasDePago = cuotas.filter(c => Number(c.pagoId) === Number(pago.id));
                         return (
                           <TableRow key={pago.id}>

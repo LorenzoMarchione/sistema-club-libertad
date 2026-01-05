@@ -20,6 +20,7 @@ public class Pago {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "socio_id", nullable = false)
     private Persona socioId;
@@ -39,4 +40,14 @@ public class Pago {
     @JsonIgnore
     @OneToMany(mappedBy = "pagoId", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Cuota> cuotas;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("socioId")
+    public Long getSocioIdValue() {
+        return socioId != null ? socioId.getId() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("cuotasIds")
+    public List<Long> getCuotasIds() {
+        return cuotas != null ? cuotas.stream().map(Cuota::getId).toList() : null;
+    }
 }

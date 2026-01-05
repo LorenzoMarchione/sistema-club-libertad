@@ -73,4 +73,16 @@ public class CuotaController {
         }
     }
 
+    @PostMapping("/cuotas/actualizar-vencidas")
+    @Operation(summary = "Actualiza todas las cuotas generadas cuya fecha de vencimiento es menor o igual a hoy a estado VENCIDA")
+    public ResponseEntity<String> actualizarCuotasVencidas(){
+        try{
+            int cuotasVencidas = cuotaService.actualizarCuotasVencidas();
+            return ResponseEntity.ok("Se actualizaron " + cuotasVencidas + " cuotas a estado vencido");
+        } catch (Exception e){
+            System.out.println(e.getMessage());
+            return ResponseEntity.status(500).body("Error al actualizar cuotas vencidas: " + e.getMessage());
+        }
+    }
+
 }

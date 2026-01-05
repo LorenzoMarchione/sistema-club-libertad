@@ -6,6 +6,8 @@ import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.DeporteRepository;
 import com.club_libertad.repositories.PersonaRepository;
 import com.club_libertad.repositories.RegistroRepository;
+import com.club_libertad.repositories.InscripcionRepository;
+import com.club_libertad.repositories.CuotaRepository;
 import com.club_libertad.models.Registro;
 
 import org.springframework.stereotype.Service;
@@ -21,11 +23,15 @@ public class PersonaService {
     private final PersonaRepository personaRepository;
     private final DeporteRepository deporteRepository;
     private final RegistroRepository registroRepository;
+    private final InscripcionRepository inscripcionRepository;
+    private final CuotaRepository cuotaRepository;
 
-    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository) {
+    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository, InscripcionRepository inscripcionRepository, CuotaRepository cuotaRepository) {
         this.personaRepository = personaRepository;
         this.deporteRepository = deporteRepository;
         this.registroRepository = registroRepository;
+        this.inscripcionRepository = inscripcionRepository;
+        this.cuotaRepository = cuotaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -133,8 +139,30 @@ public class PersonaService {
     @Transactional
     public boolean deletePersonaById(Long id){
         if(personaRepository.existsById(id)){
-            personaRepository.deleteById(id);
-            return true;
+            Optional<Persona> persona = personaRepository.findById(id);
+            if(persona.isPresent()){
+                // 1. Eliminar todas las cuotas asociadas a esta persona
+                cuotaRepository.deleteByPersonaId_Id(id);
+                
+                // 2. Eliminar todas las inscripciones de esta persona
+                inscripcionRepository.deleteByPersonaId_Id(id);
+                
+                // 3. Desasociar deportes (relación many-to-many)
+                persona.get().getDeportes().clear();
+                personaRepository.save(persona.get());
+                
+                // 4. Eliminar referencias como socioResponsable de otras personas
+                List<Persona> personasDependientes = personaRepository.findAll().stream()
+                    .filter(p -> p.getSocioResponsable() != null && p.getSocioResponsable().getId().equals(id))
+                    .toList();
+                for(Persona p : personasDependientes){
+                    p.setSocioResponsable(null);
+                }
+                
+                // 5. Finalmente, eliminar la persona
+                personaRepository.deleteById(id);
+                return true;
+            }
         }
         return false;
     }

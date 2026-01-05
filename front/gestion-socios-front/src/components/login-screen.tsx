@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -14,6 +14,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [attempts, setAttempts] = useState(0);
+  const [blockedUntil, setBlockedUntil] = useState<number | null>(null);
+
+  const MAX_ATTEMPTS = 5;
+  const BLOCK_MINUTES = 5;
 
   // Mock users - en producción esto vendría de una base de datos
   const users = [
@@ -21,9 +26,26 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     { id: '2', username: 'secretario', password: 'sec123', name: 'María García', role: 'secretario' as const },
   ];
 
+  // Sin backend de IP, se persiste en localStorage para bloquear al cliente actual
+  useEffect(() => {
+    const storedAttempts = Number(localStorage.getItem('loginAttempts') || '0');
+    const storedBlockedUntil = Number(localStorage.getItem('loginBlockedUntil') || '0');
+    setAttempts(isNaN(storedAttempts) ? 0 : storedAttempts);
+    setBlockedUntil(isNaN(storedBlockedUntil) || storedBlockedUntil === 0 ? null : storedBlockedUntil);
+  }, []);
+
+  const isBlocked = blockedUntil !== null && Date.now() < blockedUntil;
+  const remainingMs = blockedUntil ? Math.max(blockedUntil - Date.now(), 0) : 0;
+  const remainingMinutes = Math.ceil(remainingMs / 60000);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (isBlocked) {
+      setError(`Demasiados intentos. Intenta nuevamente en ${remainingMinutes} minuto(s).`);
+      return;
+    }
 
     const user = users.find(u => u.username === username && u.password === password);
     
@@ -33,8 +55,24 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         name: user.name,
         role: user.role,
       });
+      setAttempts(0);
+      setBlockedUntil(null);
+      localStorage.removeItem('loginAttempts');
+      localStorage.removeItem('loginBlockedUntil');
     } else {
-      setError('Usuario o contraseña incorrectos');
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      localStorage.setItem('loginAttempts', String(newAttempts));
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const blockUntilTs = Date.now() + BLOCK_MINUTES * 60 * 1000;
+        setBlockedUntil(blockUntilTs);
+        localStorage.setItem('loginBlockedUntil', String(blockUntilTs));
+        setError(`Demasiados intentos. La página se bloquea por ${BLOCK_MINUTES} minuto(s).`);
+      } else {
+        const restantes = MAX_ATTEMPTS - newAttempts;
+        setError(`Usuario o contraseña incorrectos. Intentos restantes: ${restantes}`);
+      }
     }
   };
 
@@ -58,6 +96,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Ingrese su usuario"
+                disabled={isBlocked}
                 required
               />
             </div>
@@ -69,6 +108,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Ingrese su contraseña"
+                disabled={isBlocked}
                 required
               />
             </div>
@@ -79,7 +119,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               </Alert>
             )}
 
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={isBlocked}>
               Iniciar Sesión
             </Button>
 

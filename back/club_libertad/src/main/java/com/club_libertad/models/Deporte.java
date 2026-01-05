@@ -39,4 +39,9 @@ public class Deporte {
                 .collect(Collectors.toList()) : null;
     }
 
+    @JsonProperty("numeroSocios")
+    public int getNumeroSocios() {
+        return personas != null ? personas.size() : 0;
+    }
+
 }

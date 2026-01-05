@@ -98,4 +98,23 @@ public class CuotaService {
         return cuotasGeneradas;
     }
 
+    @Transactional
+    public int actualizarCuotasVencidas(){
+        LocalDate hoy = LocalDate.now();
+        List<Cuota> cuotas = cuotaRepository.findAll();
+        int cuotasVencidas = 0;
+        
+        for (Cuota cuota : cuotas) {
+            // Si la cuota está en GENERADA y su fecha de vencimiento es <= hoy, marcarla como VENCIDA
+            if (cuota.getEstado() == EstadoCuota.GENERADA && 
+                cuota.getFechaVencimiento() != null && 
+                !cuota.getFechaVencimiento().isAfter(hoy)) {
+                cuota.setEstado(EstadoCuota.VENCIDA);
+                cuotasVencidas++;
+            }
+        }
+        
+        return cuotasVencidas;
+    }
+
 }

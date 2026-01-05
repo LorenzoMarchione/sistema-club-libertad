@@ -514,21 +514,6 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="estado">Estado *</Label>
-                    <Select
-                      value={formData.estado}
-                      onValueChange={(value) => setFormData({ ...formData, estado: value as any })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="activo">Activo</SelectItem>
-                        <SelectItem value="inactivo">Inactivo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -606,14 +591,13 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       <TableHead>Contacto</TableHead>
                       <TableHead>Deportes</TableHead>
                       <TableHead>Fecha de Registro</TableHead>
-                      <TableHead>Estado</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredSocios.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-gray-500 py-8">
+                        <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                           No se encontraron socios
                         </TableCell>
                       </TableRow>
@@ -654,11 +638,6 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">{formatDate(socio.fechaRegistro)}</div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={socio.estado === 'activo' ? 'default' : 'secondary'}>
-                              {socio.estado}
-                            </Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
