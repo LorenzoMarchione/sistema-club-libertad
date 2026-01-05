@@ -48,6 +48,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [pagosServidor, setPagosServidor] = useState<any[]>([]);
+  const [searchCuota, setSearchCuota] = useState<string>('');
 
   // Helper para extraer mes-año de periodo sin problemas de timezone
   const getMesAno = (periodo: string) => {
@@ -533,6 +534,15 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
             {['todos', 'pagados', 'pendientes', 'vencidos'].map((tab) => (
               <TabsContent key={tab} value={tab}>
+                <div className="mb-4">
+                  <Input
+                    type="text"
+                    placeholder="Buscar por socio, DNI, deporte o estado..."
+                    value={searchCuota}
+                    onChange={(e) => setSearchCuota(e.target.value)}
+                    className="max-w-md"
+                  />
+                </div>
                 <div className="border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -555,6 +565,16 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                           if (tab === 'pendientes') return p.estado === 'pendiente';
                           if (tab === 'vencidos') return p.estado === 'vencido';
                           return true;
+                        })
+                        .filter(p => {
+                          const search = searchCuota.toLowerCase().trim();
+                          if (!search) return true;
+                          return (
+                            p.socio.toLowerCase().includes(search) ||
+                            p.socioDNI.toLowerCase().includes(search) ||
+                            p.estado.toLowerCase().includes(search) ||
+                            p.conceptos.some(c => c.concepto.toLowerCase().includes(search))
+                          );
                         })
                         .map((pago) => (
                           <TableRow key={pago.id}>
