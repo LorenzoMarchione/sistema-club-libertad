@@ -6,24 +6,52 @@ import com.club_libertad.models.Cuota;
 import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Inscripcion;
 import com.club_libertad.models.Persona;
+import com.club_libertad.models.Promocion;
 import com.club_libertad.repositories.CuotaRepository;
 import com.club_libertad.repositories.InscripcionRepository;
+import com.club_libertad.repositories.PersonaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class CuotaService {
     private final CuotaRepository cuotaRepository;
     private final InscripcionRepository inscripcionRepository;
+    private final PersonaRepository personaRepository;
     
-    public CuotaService(CuotaRepository cuotaRepository, InscripcionRepository inscripcionRepository) {
+    public CuotaService(CuotaRepository cuotaRepository, InscripcionRepository inscripcionRepository, PersonaRepository personaRepository) {
         this.cuotaRepository = cuotaRepository;
         this.inscripcionRepository = inscripcionRepository;
+        this.personaRepository = personaRepository;
+    }
+
+    // Método auxiliar para calcular monto con descuentos de promociones
+    private BigDecimal aplicarDescuentosPromociones(BigDecimal montoOriginal, Set<Promocion> promociones) {
+        if (promociones == null || promociones.isEmpty()) {
+            return montoOriginal;
+        }
+        
+        BigDecimal descuentoTotal = BigDecimal.ZERO;
+        for (Promocion promo : promociones) {
+            if (promo.getActivo() != null && promo.getActivo()) {
+                if (promo.getTipoDescuento().name().equals("PORCENTAJE")) {
+                    BigDecimal descuentoPorcentual = montoOriginal.multiply(promo.getDescuento()).divide(BigDecimal.valueOf(100));
+                    descuentoTotal = descuentoTotal.add(descuentoPorcentual);
+                } else { // MONTO_FIJO
+                    descuentoTotal = descuentoTotal.add(promo.getDescuento());
+                }
+            }
+        }
+        
+        BigDecimal montoFinal = montoOriginal.subtract(descuentoTotal);
+        return montoFinal.compareTo(BigDecimal.ZERO) > 0 ? montoFinal : BigDecimal.ZERO;
     }
 
     @Transactional(readOnly = true)
@@ -42,7 +70,16 @@ public class CuotaService {
         deporteExisting.setId(cuotaTransfer.getDeporteId());
         cuotaCreate.setDeporteId(deporteExisting);
         cuotaCreate.setPeriodo(cuotaTransfer.getPeriodo());
-        cuotaCreate.setMonto(cuotaTransfer.getMonto());
+        
+        // Aplicar descuentos de promociones si la persona los tiene
+        BigDecimal montoBase = cuotaTransfer.getMonto();
+        Optional<Persona> personaOpt = personaRepository.findById(cuotaTransfer.getPersonaId());
+        if(personaOpt.isPresent()) {
+            Set<Promocion> promociones = personaOpt.get().getPromociones();
+            montoBase = aplicarDescuentosPromociones(montoBase, promociones);
+        }
+        cuotaCreate.setMonto(montoBase);
+        
         cuotaCreate.setEstado(cuotaTransfer.getEstado());
         if(cuotaTransfer.getFechaVencimiento() != null) cuotaCreate.setFechaVencimiento(cuotaTransfer.getFechaVencimiento());
         if(cuotaTransfer.getConcepto() != null) cuotaCreate.setConcepto(cuotaTransfer.getConcepto());
@@ -84,7 +121,13 @@ public class CuotaService {
                 nuevaCuota.setPersonaId(inscripcion.getPersonaId());
                 nuevaCuota.setDeporteId(inscripcion.getDeporteId());
                 nuevaCuota.setPeriodo(primerDiaMes);
-                nuevaCuota.setMonto(inscripcion.getDeporteId().getCuotaMensual());
+                
+                // Aplicar descuentos de promociones si la persona los tiene
+                BigDecimal montoBase = inscripcion.getDeporteId().getCuotaMensual();
+                Set<Promocion> promociones = inscripcion.getPersonaId().getPromociones();
+                BigDecimal montoFinal = aplicarDescuentosPromociones(montoBase, promociones);
+                nuevaCuota.setMonto(montoFinal);
+                
                 nuevaCuota.setEstado(EstadoCuota.GENERADA);
                 nuevaCuota.setFechaVencimiento(primerDiaMesSiguiente);
                 nuevaCuota.setFechaGeneracion(hoy);
