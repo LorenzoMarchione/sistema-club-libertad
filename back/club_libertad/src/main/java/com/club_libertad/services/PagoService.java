@@ -37,23 +37,7 @@ public class PagoService {
         socioExisting.setId(pagoTransfer.getSocioId());
         pagoCreate.setSocioId(socioExisting);
         pagoCreate.setFechaPago(pagoTransfer.getFechaPago());
-        // Calcular montoOriginal a partir de las cuotas
-        BigDecimal montoOriginal = BigDecimal.ZERO;
-        if(pagoTransfer.getCuotaIds() != null && !pagoTransfer.getCuotaIds().isEmpty()) {
-            for(Long cuotaId : pagoTransfer.getCuotaIds()) {
-                Optional<Cuota> cuotaOpt = cuotaRepository.findById(cuotaId);
-                if(cuotaOpt.isPresent()) {
-                    Cuota cuota = cuotaOpt.get();
-                    montoOriginal = montoOriginal.add(cuota.getMonto());
-                }
-            }
-        }
-
-        // Si viene informado desde frontend, se usa; si no, se toma 0
-        BigDecimal montoDescuento = pagoTransfer.getMontoDescuento() != null ? pagoTransfer.getMontoDescuento() : BigDecimal.ZERO;
-        pagoCreate.setMontoOriginal(pagoTransfer.getMontoOriginal() != null ? pagoTransfer.getMontoOriginal() : montoOriginal);
-        pagoCreate.setMontoDescuento(montoDescuento);
-        pagoCreate.setMontoTotal(pagoCreate.getMontoOriginal().subtract(montoDescuento));
+        pagoCreate.setMontoTotal(pagoTransfer.getMontoTotal() != null ? pagoTransfer.getMontoTotal() : BigDecimal.ZERO);
         if(pagoTransfer.getMetodoPago() != null) pagoCreate.setMetodoPago(pagoTransfer.getMetodoPago());
         if(pagoTransfer.getObservaciones() != null) pagoCreate.setObservaciones(pagoTransfer.getObservaciones());
         

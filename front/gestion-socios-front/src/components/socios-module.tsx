@@ -13,9 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
 import deporteService from '../services/deporteService';
 import registroService from '../services/registroService';
+import promocionService from '../services/promocionService';
 import type { Persona } from '../types/persona';
 import type { Deporte } from '../types/deporte';
 import type { Registro } from '../types/registro';
+import type { Promocion } from '../types/promocion';
+import { Checkbox } from './ui/checkbox';
 
 // Usamos directamente el tipo Persona del backend
 type Socio = Persona & {
@@ -55,6 +58,7 @@ const calcularEdad = (fechaNacimiento: string | null): number => {
 export function SociosModule({ userRole }: SociosModuleProps) {
   const [socios, setSocios] = useState<Socio[]>([]);
   const [deportes, setDeportes] = useState<Deporte[]>([]);
+  const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [historialRegistros, setHistorialRegistros] = useState<Registro[]>([]);
@@ -63,6 +67,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [filterDeporte, setFilterDeporte] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSocio, setEditingSocio] = useState<Socio | null>(null);
+  const [selectedPromociones, setSelectedPromociones] = useState<number[]>([]);
   const [formData, setFormData] = useState<FormSocio>({
     categoria: 'SOCIO',
     estado: 'activo',
@@ -148,6 +153,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         const deportesResponse = await deporteService.getAll();
         setDeportes(Array.isArray(deportesResponse.data) ? deportesResponse.data : []);
         
+        // Cargar promociones
+        const promocionesResponse = await promocionService.getAll();
+        setPromociones(Array.isArray(promocionesResponse.data) ? promocionesResponse.data : []);
+        
         // Cargar personas/socios
         const response = await personaService.getAll();
         const personas = response.data;
@@ -209,6 +218,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const handleOpenDialog = (socio?: Socio) => {
     if (socio) {
       setEditingSocio(socio);
+      setSelectedPromociones(socio.promocionesIds || []);
       setFormData({
         nombre: socio.nombre,
         apellido: socio.apellido,
@@ -229,6 +239,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       });
     } else {
       setEditingSocio(null);
+      setSelectedPromociones([]);
       setFormData({
         categoria: 'SOCIO',
         estado: 'activo',
@@ -267,6 +278,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         estado: formData.estado,
         edad: formData.fechaNacimiento ? calcularEdad(formData.fechaNacimiento) : 0,
         deportes: [], // Por ahora vacío
+        promocionesIds: selectedPromociones,
       };
 
       if (editingSocio) {
@@ -513,6 +525,44 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                         <SelectItem value="SOCIOYJUGADOR">Socio y Jugador</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Promociones</Label>
+                    <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
+                      {promociones.filter(p => p.activo !== false).map(promo => {
+                        const checked = selectedPromociones.includes(Number(promo.id));
+                        return (
+                          <div key={promo.id} className="flex items-start gap-3 p-3">
+                            <Checkbox
+                              id={`promo-${promo.id}`}
+                              checked={checked}
+                              onCheckedChange={(val) => {
+                                if (val) {
+                                  setSelectedPromociones(prev => [...prev, Number(promo.id)]);
+                                } else {
+                                  setSelectedPromociones(prev => prev.filter(id => id !== Number(promo.id)));
+                                }
+                              }}
+                            />
+                            <label htmlFor={`promo-${promo.id}`} className="flex-1 cursor-pointer">
+                              <div className="font-medium">{promo.nombre}</div>
+                              {promo.descripcion && (
+                                <div className="text-sm text-gray-500">{promo.descripcion}</div>
+                              )}
+                            </label>
+                          </div>
+                        );
+                      })}
+                      {promociones.filter(p => p.activo !== false).length === 0 && (
+                        <div className="p-3 text-sm text-gray-500">No hay promociones activas</div>
+                      )}
+                    </div>
+                    {selectedPromociones.length > 0 && (
+                      <p className="text-sm text-gray-600">
+                        {selectedPromociones.length} promoción(es) seleccionada(s)
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">

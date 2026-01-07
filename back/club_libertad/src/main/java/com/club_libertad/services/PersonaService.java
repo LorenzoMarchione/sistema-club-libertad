@@ -8,7 +8,11 @@ import com.club_libertad.repositories.PersonaRepository;
 import com.club_libertad.repositories.RegistroRepository;
 import com.club_libertad.repositories.InscripcionRepository;
 import com.club_libertad.repositories.CuotaRepository;
+import com.club_libertad.repositories.PromocionRepository;
 import com.club_libertad.models.Registro;
+import com.club_libertad.models.Inscripcion;
+import com.club_libertad.models.Cuota;
+import com.club_libertad.models.Promocion;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,13 +29,15 @@ public class PersonaService {
     private final RegistroRepository registroRepository;
     private final InscripcionRepository inscripcionRepository;
     private final CuotaRepository cuotaRepository;
+    private final PromocionRepository promocionRepository;
 
-    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository, InscripcionRepository inscripcionRepository, CuotaRepository cuotaRepository) {
+    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository, InscripcionRepository inscripcionRepository, CuotaRepository cuotaRepository, PromocionRepository promocionRepository) {
         this.personaRepository = personaRepository;
         this.deporteRepository = deporteRepository;
         this.registroRepository = registroRepository;
         this.inscripcionRepository = inscripcionRepository;
         this.cuotaRepository = cuotaRepository;
+        this.promocionRepository = promocionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -66,6 +72,17 @@ public class PersonaService {
             personaCreate.setSocioResponsable(socioResponsable);
         }
         Persona p = personaRepository.save(personaCreate);
+        
+        // Asignar promociones si vienen en el DTO
+        if(personaTransfer.getPromocionesIds() != null && !personaTransfer.getPromocionesIds().isEmpty()) {
+            for(Long promoId : personaTransfer.getPromocionesIds()) {
+                Optional<Promocion> promoOpt = promocionRepository.findById(promoId);
+                if(promoOpt.isPresent()) {
+                    p.getPromociones().add(promoOpt.get());
+                }
+            }
+            personaRepository.save(p);
+        }
 
         // Crear registro inmutable asociado a la creación de la persona
         Registro registro = new Registro();
@@ -101,6 +118,7 @@ public class PersonaService {
             if(personaUpdate.getDireccion() != null) persona.get().setDireccion(personaUpdate.getDireccion());
             if(personaUpdate.getCategoria() != null) persona.get().setCategoria(personaUpdate.getCategoria());
             if(personaUpdate.getSocioResponsable() != null) persona.get().setSocioResponsable(personaUpdate.getSocioResponsable());
+            if(personaUpdate.getPromociones() != null) persona.get().setPromociones(personaUpdate.getPromociones());
             b = true;
         }
         return b;

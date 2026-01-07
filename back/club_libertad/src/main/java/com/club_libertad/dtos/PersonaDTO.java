@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -21,4 +22,5 @@ public class PersonaDTO {
     @Enumerated(EnumType.STRING)
     public CategoriaPersona categoria;
     public Long socioResponsableId;
+    public List<Long> promocionesIds;
 }

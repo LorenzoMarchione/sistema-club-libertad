@@ -14,11 +14,9 @@ import cuotaService from '../services/cuotaService';
 import pagoService from '../services/pagoService';
 import personaService from '../services/personaService';
 import deporteService from '../services/deporteService';
-import promocionService from '../services/promocionService';
 import type { Cuota } from '../types/cuota';
 import type { Persona } from '../types/persona';
 import type { Deporte } from '../types/deporte';
-import type { Promocion } from '../types/promocion';
 import { Checkbox } from './ui/checkbox';
 
 interface Pago {
@@ -46,7 +44,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [loading, setLoading] = useState(true);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [deportes, setDeportes] = useState<Deporte[]>([]);
-  const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [pagosServidor, setPagosServidor] = useState<any[]>([]);
   const [searchCuota, setSearchCuota] = useState<string>('');
 
@@ -70,12 +67,11 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       await cuotaService.generarCuotasMesActual();
 
       // Luego cargar todas las cuotas, personas y deportes en paralelo
-      const [cuotasRes, personasRes, deportesRes, pagosRes, promocionesRes] = await Promise.all([
+      const [cuotasRes, personasRes, deportesRes, pagosRes] = await Promise.all([
         cuotaService.getAll(),
         personaService.getAll(),
         deporteService.getAll(),
         pagoService.getAll(),
-        promocionService.getAll(),
       ]);
       const cuotasData = Array.isArray(cuotasRes.data) ? cuotasRes.data : [];
       const personasData = Array.isArray(personasRes.data) ? personasRes.data : [];
@@ -84,7 +80,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       setPersonas(personasData);
       setDeportes(deportesData);
       setPagosServidor(Array.isArray(pagosRes.data) ? pagosRes.data : []);
-      setPromociones(Array.isArray(promocionesRes.data) ? promocionesRes.data : []);
 
       // Mapear por ID para acceso rápido
       const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
@@ -129,25 +124,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedSocio, setSelectedSocio] = useState('');
   const [selectedCuotas, setSelectedCuotas] = useState<number[]>([]);
-  const [selectedPromos, setSelectedPromos] = useState<number[]>([]);
   const [metodoPago, setMetodoPago] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'DEBITO_AUTOMATICO'>('EFECTIVO');
   const [observaciones, setObservaciones] = useState('');
-
-  const calcularDescuento = (montoOriginal: number) => {
-    if (!selectedPromos.length) return 0;
-    const promoMap = new Map<number, Promocion>(promociones.map(p => [Number(p.id), p] as const));
-    let descuentoTotal = 0;
-    selectedPromos.forEach(pid => {
-      const promo = promoMap.get(pid);
-      if (!promo || promo.activo === false) return;
-      if (promo.tipoDescuento === 'PORCENTAJE') {
-        descuentoTotal += (montoOriginal * (promo.descuento || 0)) / 100;
-      } else {
-        descuentoTotal += promo.descuento || 0;
-      }
-    });
-    return Math.min(descuentoTotal, montoOriginal);
-  };
 
   const handleRegistrarPago = async () => {
     if (!selectedSocio || selectedCuotas.length === 0) {
@@ -164,12 +142,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       return;
     }
 
-    const montoDescuento = calcularDescuento(montoOriginal);
-    const totalCalculado = montoOriginal - montoDescuento;
-    if (totalCalculado <= 0) {
-      toast.error('El total después del descuento debe ser mayor a 0');
-      return;
-    }
+    const montoDescuento = 0;
+    const totalCalculado = montoOriginal;
 
     const fechaPago = new Date();
     const yyyy = fechaPago.getFullYear();
@@ -202,7 +176,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const resetForm = () => {
     setSelectedSocio('');
     setSelectedCuotas([]);
-    setSelectedPromos([]);
     setMetodoPago('EFECTIVO');
     setObservaciones('');
   };
@@ -393,68 +366,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                         onChange={(e) => setObservaciones(e.target.value)}
                         placeholder="Opcional"
                       />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Promociones</Label>
-                      <div className="border rounded-lg divide-y max-h-[240px] overflow-y-auto">
-                        {promociones.filter(p => p.activo !== false).map(promo => {
-                          const checked = selectedPromos.includes(Number(promo.id));
-                          return (
-                            <div key={promo.id} className="flex items-start gap-3 p-3">
-                              <Checkbox
-                                id={`promo-${promo.id}`}
-                                checked={checked}
-                                onCheckedChange={(val) => {
-                                  if (val) {
-                                    setSelectedPromos(prev => [...prev, Number(promo.id)]);
-                                  } else {
-                                    setSelectedPromos(prev => prev.filter(id => id !== Number(promo.id)));
-                                  }
-                                }}
-                              />
-                              <label htmlFor={`promo-${promo.id}`} className="flex-1 cursor-pointer">
-                                <div className="font-medium flex items-center gap-2">
-                                  {promo.nombre}
-                                  <Badge variant="outline" className="text-xs">
-                                    {promo.tipoDescuento === 'PORCENTAJE' ? `${promo.descuento}%` : `$${promo.descuento.toLocaleString()}`}
-                                  </Badge>
-                                </div>
-                                {promo.descripcion && (
-                                  <div className="text-sm text-gray-500">{promo.descripcion}</div>
-                                )}
-                              </label>
-                            </div>
-                          );
-                        })}
-                        {promociones.filter(p => p.activo !== false).length === 0 && (
-                          <div className="p-3 text-sm text-gray-500">No hay promociones activas</div>
-                        )}
-                      </div>
-                      <div className="flex justify-between text-sm text-gray-700">
-                        <span>Descuento aplicado:</span>
-                        <span className="font-semibold">
-                          ${calcularDescuento(
-                            cuotas
-                              .filter(c => selectedCuotas.includes(Number(c.id)))
-                              .reduce((sum, c) => sum + (c.monto || 0), 0)
-                          ).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm text-gray-700">
-                        <span>Total a pagar:</span>
-                        <span className="font-semibold">
-                          ${(
-                            (() => {
-                              const base = cuotas
-                                .filter(c => selectedCuotas.includes(Number(c.id)))
-                                .reduce((sum, c) => sum + (c.monto || 0), 0);
-                              const desc = calcularDescuento(base);
-                              return Math.max(base - desc, 0);
-                            })()
-                          ).toLocaleString()}
-                        </span>
-                      </div>
                     </div>
 
                     <div className="space-y-2">
