@@ -98,8 +98,8 @@ public class PersonaController {
 
     @DeleteMapping("/persona/{id}")
     @Operation(summary = "Elimina una persona por su id")
-    public ResponseEntity<String> deletePersona(@PathVariable Long id) {
-        boolean b = personaService.deletePersonaById(id);
+    public ResponseEntity<String> deletePersona(@PathVariable Long id, @RequestParam(required = false) String observacionBaja) {
+        boolean b = personaService.deletePersonaById(id, observacionBaja);
         if(b) return ResponseEntity.ok("Persona con id " + id + " eliminada con exito");
         return ResponseEntity.notFound().build();
     }

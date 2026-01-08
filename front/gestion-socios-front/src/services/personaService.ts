@@ -63,8 +63,13 @@ const personaService = {
     });
   },
 
-  delete(id: number) {
-    return api.delete<string>(`/persona/${id}`).catch(error => {
+  delete(id: number, observacionBaja?: string) {
+    const params = new URLSearchParams();
+    if (observacionBaja) {
+      params.append('observacionBaja', observacionBaja);
+    }
+    const queryString = params.toString();
+    return api.delete<string>(`/persona/${id}${queryString ? '?' + queryString : ''}`).catch(error => {
       console.error('Error al eliminar persona:', error);
       throw error;
     });

@@ -72,6 +72,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     categoria: 'SOCIO',
     estado: 'activo',
   });
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [socioToDelete, setSocioToDelete] = useState<Socio | null>(null);
+  const [observacionBaja, setObservacionBaja] = useState('');
+  const [expandedRegistroId, setExpandedRegistroId] = useState<string | null>(null);
   
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('socios');
@@ -315,16 +319,28 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   };
 
   // Eliminar socio
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (userRole !== 'admin') {
       toast.error('No tienes permisos para eliminar socios');
       return;
     }
     
-    if (confirm('¿Estás seguro de que deseas eliminar este socio?')) {
+    const socioAEliminar = socios.find(s => s.id === id);
+    if (socioAEliminar) {
+      setSocioToDelete(socioAEliminar);
+      setObservacionBaja('');
+      setIsDeleteDialogOpen(true);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (socioToDelete) {
       try {
-        await personaService.delete(parseInt(id));
-        setSocios(socios.filter(s => s.id !== id));
+        await personaService.delete(parseInt(socioToDelete.id), observacionBaja || undefined);
+        setSocios(socios.filter(s => s.id !== socioToDelete.id));
+        setIsDeleteDialogOpen(false);
+        setSocioToDelete(null);
+        setObservacionBaja('');
         toast.success('Socio eliminado correctamente');
       } catch (error) {
         console.error('Error al eliminar socio:', error);
@@ -575,6 +591,38 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Dialog de Confirmación de Eliminación */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Eliminar Socio</DialogTitle>
+                  <DialogDescription>
+                    ¿Estás seguro de que deseas eliminar a {socioToDelete?.apellido}, {socioToDelete?.nombre}?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="observacionBaja">Observación de Baja (opcional)</Label>
+                    <Input
+                      id="observacionBaja"
+                      placeholder="Ej: Traslado a otra ciudad, cambio de trabajo..."
+                      value={observacionBaja}
+                      onChange={(e) => setObservacionBaja(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button variant="destructive" onClick={handleConfirmDelete}>
+                      Eliminar
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
         <CardContent>
@@ -745,28 +793,56 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12"></TableHead>
                       <TableHead>Número</TableHead>
                       <TableHead>Nombre Completo</TableHead>
                       <TableHead>DNI</TableHead>
                       <TableHead>Fecha de Registro</TableHead>
+                      <TableHead>Fecha de Baja</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredHistorial.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                        <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                           No se encontraron registros
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredHistorial.map((registro, index) => (
-                        <TableRow key={registro.id}>
+                        <TableRow key={`registro-${registro.id}`}>
+                          <TableCell className="text-center">
+                            {registro.fechaBaja && (
+                              <button
+                                onClick={() => setExpandedRegistroId(expandedRegistroId === registro.id ? null : registro.id)}
+                                className="text-blue-600 hover:text-blue-800 cursor-pointer text-lg leading-none"
+                              >
+                                {expandedRegistroId === registro.id ? '▼' : '▶'}
+                              </button>
+                            )}
+                          </TableCell>
                           <TableCell>{index + 1}</TableCell>
                           <TableCell>{registro.apellido}, {registro.nombre}</TableCell>
                           <TableCell>{registro.dni}</TableCell>
                           <TableCell>{formatDate(registro.fechaRegistro)}</TableCell>
+                          <TableCell>
+                            {registro.fechaBaja ? formatDate(registro.fechaBaja) : '-'}
+                          </TableCell>
                         </TableRow>
                       ))
+                    )}
+                    {/* Filas expandidas con observación de baja */}
+                    {filteredHistorial.map((registro) => 
+                      expandedRegistroId === registro.id && registro.fechaBaja && registro.observacionBaja ? (
+                        <TableRow key={`expanded-${registro.id}`} className="bg-gray-50">
+                          <TableCell colSpan={6} className="py-4">
+                            <div className="pl-8 border-l-2 border-blue-400">
+                              <p className="text-sm font-semibold text-gray-700 mb-2">Razón de Baja:</p>
+                              <p className="text-sm text-gray-600 italic">{registro.observacionBaja}</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : null
                     )}
                   </TableBody>
                 </Table>

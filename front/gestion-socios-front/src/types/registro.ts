@@ -4,4 +4,6 @@ export interface Registro {
   apellido: string;
   dni: string;
   fechaRegistro: string; // ISO format
+  fechaBaja?: string; // ISO format
+  observacionBaja?: string;
 }

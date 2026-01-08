@@ -155,10 +155,21 @@ public class PersonaService {
     }
 
     @Transactional
-    public boolean deletePersonaById(Long id){
+    public boolean deletePersonaById(Long id, String observacionBaja){
         if(personaRepository.existsById(id)){
             Optional<Persona> persona = personaRepository.findById(id);
             if(persona.isPresent()){
+                // 0. Actualizar el registro con la fecha de baja y observación
+                String dni = persona.get().getDni();
+                Optional<Registro> registro = registroRepository.findByDni(dni);
+                if(registro.isPresent()) {
+                    registro.get().setFechaBaja(ZonedDateTime.now());
+                    if(observacionBaja != null && !observacionBaja.trim().isEmpty()) {
+                        registro.get().setObservacionBaja(observacionBaja);
+                    }
+                    registroRepository.save(registro.get());
+                }
+                
                 // 1. Eliminar todas las cuotas asociadas a esta persona
                 cuotaRepository.deleteByPersonaId_Id(id);
                 
