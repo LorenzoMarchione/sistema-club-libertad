@@ -78,6 +78,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [expandedRegistroId, setExpandedRegistroId] = useState<string | null>(null);
   
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
+  const [historialFilter, setHistorialFilter] = useState<'todos' | 'activos' | 'inactivos'>('todos');
   const [activeTab, setActiveTab] = useState('socios');
   const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean }>({
     nombre: false,
@@ -210,13 +211,23 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     return matchesSearch && matchesCategoria && matchesDeporte;
   });
 
-  const filteredHistorial = historialRegistros.filter(registro => {
-    const nombreCompleto = `${registro.apellido} ${registro.nombre}`.toLowerCase();
-    return (
-      nombreCompleto.includes(historialSearchTerm.toLowerCase()) ||
-      registro.dni.includes(historialSearchTerm)
-    );
-  });
+  const filteredHistorial = historialRegistros
+    .filter(registro => {
+      const nombreCompleto = `${registro.apellido} ${registro.nombre}`.toLowerCase();
+      return (
+        nombreCompleto.includes(historialSearchTerm.toLowerCase()) ||
+        registro.dni.includes(historialSearchTerm)
+      );
+    })
+    .filter(registro => {
+      if (historialFilter === 'activos') {
+        return !registro.fechaBaja; // activos: sin fecha de baja
+      }
+      if (historialFilter === 'inactivos') {
+        return !!registro.fechaBaja; // dados de baja: con fecha de baja
+      }
+      return true; // 'todos'
+    });
 
   // Abrir diálogo para crear/editar
   const handleOpenDialog = (socio?: Socio) => {
@@ -777,15 +788,30 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                 </p>
               </div>
 
-              {/* Búsqueda en historial */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Buscar en historial por nombre o DNI..."
-                  value={historialSearchTerm}
-                  onChange={(e) => setHistorialSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+              {/* Búsqueda y filtro en historial */}
+              <div className="flex flex-col md:flex-row gap-3 md:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Buscar en historial por nombre o DNI..."
+                    value={historialSearchTerm}
+                    onChange={(e) => setHistorialSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="w-full md:w-64">
+                  <Label className="mb-1 block">Filtro</Label>
+                  <Select value={historialFilter} onValueChange={(v) => setHistorialFilter(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar filtro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="activos">Activos</SelectItem>
+                      <SelectItem value="inactivos">Inactivos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Tabla de Historial */}
