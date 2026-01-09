@@ -46,6 +46,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [deportes, setDeportes] = useState<Deporte[]>([]);
   const [pagosServidor, setPagosServidor] = useState<any[]>([]);
   const [searchCuota, setSearchCuota] = useState<string>('');
+  const [filterDeportePago, setFilterDeportePago] = useState<string>('all');
 
   // Helper para extraer mes-año de periodo sin problemas de timezone
   const getMesAno = (periodo: string) => {
@@ -527,6 +528,24 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
             {/* Lista alterna de Pagos */}
             <TabsContent value="pagos">
+              {/* Filtro por deporte */}
+              <div className="mb-4 flex items-center gap-3">
+                <Label htmlFor="filterDeportePago" className="whitespace-nowrap">Filtrar por deporte:</Label>
+                <Select value={filterDeportePago} onValueChange={setFilterDeportePago}>
+                  <SelectTrigger id="filterDeportePago" className="w-64">
+                    <SelectValue placeholder="Todos los deportes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los deportes</SelectItem>
+                    {deportes.map(deporte => (
+                      <SelectItem key={deporte.id} value={deporte.id}>
+                        {deporte.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -541,14 +560,31 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                   </TableHeader>
                   <TableBody>
                     {Array.isArray(pagosServidor) && pagosServidor.length > 0 ? (
-                      pagosServidor.map((pago: any) => {
+                      pagosServidor
+                        .filter((pago: any) => {
+                          // Si no hay filtro de deporte, mostrar todos
+                          if (filterDeportePago === 'all') return true;
+                          
+                          // Obtener las cuotas de este pago
+                          const cuotasDePago = cuotas.filter(c => Number(c.pagoId) === Number(pago.id));
+                          
+                          // Verificar si alguna cuota pertenece al deporte seleccionado
+                          return cuotasDePago.some(c => Number(c.deporteId) === Number(filterDeportePago));
+                        })
+                        .map((pago: any) => {
                         const socio = personas.find(p => Number(p.id) === Number(pago.socioId));
                         const cuotasDePago = cuotas.filter(c => Number(c.pagoId) === Number(pago.id));
+                        const deportesNombres = cuotasDePago
+                          .map(c => {
+                            const deporte = deportes.find(d => Number(d.id) === Number(c.deporteId));
+                            return deporte?.nombre || 'Deporte desconocido';
+                          })
+                          .join(', ');
                         return (
                           <TableRow key={pago.id}>
                             <TableCell>{socio ? `${socio.nombre} ${socio.apellido}` : '—'}</TableCell>
                             <TableCell>{socio?.dni || '—'}</TableCell>
-                            <TableCell>{cuotasDePago.length}</TableCell>
+                            <TableCell>{deportesNombres || '—'}</TableCell>
                             <TableCell>${(pago.montoTotal || 0).toLocaleString()}</TableCell>
                             <TableCell>{pago.fechaPago ? new Date(pago.fechaPago).toLocaleDateString('es-ES') : '—'}</TableCell>
                             <TableCell>{pago.observaciones || '—'}</TableCell>
