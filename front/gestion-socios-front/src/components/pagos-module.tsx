@@ -47,6 +47,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [pagosServidor, setPagosServidor] = useState<any[]>([]);
   const [searchCuota, setSearchCuota] = useState<string>('');
   const [filterDeportePago, setFilterDeportePago] = useState<string>('all');
+  const [filterMesPago, setFilterMesPago] = useState<string>('all');
 
   // Helper para extraer mes-año de periodo sin problemas de timezone
   const getMesAno = (periodo: string) => {
@@ -528,22 +529,47 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
             {/* Lista alterna de Pagos */}
             <TabsContent value="pagos">
-              {/* Filtro por deporte */}
-              <div className="mb-4 flex items-center gap-3">
-                <Label htmlFor="filterDeportePago" className="whitespace-nowrap">Filtrar por deporte:</Label>
-                <Select value={filterDeportePago} onValueChange={setFilterDeportePago}>
-                  <SelectTrigger id="filterDeportePago" className="w-64">
-                    <SelectValue placeholder="Todos los deportes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los deportes</SelectItem>
-                    {deportes.map(deporte => (
-                      <SelectItem key={deporte.id} value={deporte.id}>
-                        {deporte.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Filtros por deporte y mes */}
+              <div className="mb-4 flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="filterDeportePago" className="whitespace-nowrap">Filtrar por deporte:</Label>
+                  <Select value={filterDeportePago} onValueChange={setFilterDeportePago}>
+                    <SelectTrigger id="filterDeportePago" className="w-64">
+                      <SelectValue placeholder="Todos los deportes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los deportes</SelectItem>
+                      {deportes.map(deporte => (
+                        <SelectItem key={deporte.id} value={deporte.id}>
+                          {deporte.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="filterMesPago" className="whitespace-nowrap">Filtrar por mes:</Label>
+                  <Select value={filterMesPago} onValueChange={setFilterMesPago}>
+                    <SelectTrigger id="filterMesPago" className="w-48">
+                      <SelectValue placeholder="Todos los meses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los meses</SelectItem>
+                      <SelectItem value="1">Enero</SelectItem>
+                      <SelectItem value="2">Febrero</SelectItem>
+                      <SelectItem value="3">Marzo</SelectItem>
+                      <SelectItem value="4">Abril</SelectItem>
+                      <SelectItem value="5">Mayo</SelectItem>
+                      <SelectItem value="6">Junio</SelectItem>
+                      <SelectItem value="7">Julio</SelectItem>
+                      <SelectItem value="8">Agosto</SelectItem>
+                      <SelectItem value="9">Septiembre</SelectItem>
+                      <SelectItem value="10">Octubre</SelectItem>
+                      <SelectItem value="11">Noviembre</SelectItem>
+                      <SelectItem value="12">Diciembre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="border rounded-lg overflow-x-auto">
@@ -563,13 +589,20 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                       pagosServidor
                         .filter((pago: any) => {
                           // Si no hay filtro de deporte, mostrar todos
-                          if (filterDeportePago === 'all') return true;
-                          
-                          // Obtener las cuotas de este pago
-                          const cuotasDePago = cuotas.filter(c => Number(c.pagoId) === Number(pago.id));
-                          
-                          // Verificar si alguna cuota pertenece al deporte seleccionado
-                          return cuotasDePago.some(c => Number(c.deporteId) === Number(filterDeportePago));
+                          const matchesDeporte = (() => {
+                            if (filterDeportePago === 'all') return true;
+                            const cuotasDePago = cuotas.filter(c => Number(c.pagoId) === Number(pago.id));
+                            return cuotasDePago.some(c => Number(c.deporteId) === Number(filterDeportePago));
+                          })();
+
+                          const matchesMes = (() => {
+                            if (filterMesPago === 'all') return true;
+                            if (!pago.fechaPago) return false;
+                            const mesPago = new Date(pago.fechaPago).getMonth() + 1; // 1-12
+                            return mesPago === Number(filterMesPago);
+                          })();
+
+                          return matchesDeporte && matchesMes;
                         })
                         .map((pago: any) => {
                         const socio = personas.find(p => Number(p.id) === Number(pago.socioId));
