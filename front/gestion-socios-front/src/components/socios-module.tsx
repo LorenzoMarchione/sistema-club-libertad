@@ -286,13 +286,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         apellido: formData.apellido || '',
         dni: formData.dni || '',
         fechaNacimiento: formData.fechaNacimiento || '',
-        direccion: formData.direccion || null,
+        email: formData.correo || null,
         telefono: formData.telefono || null,
-        correo: formData.correo || null,
+        direccion: formData.direccion || null,
         categoria: formData.categoria,
-        estado: formData.estado,
-        edad: formData.fechaNacimiento ? calcularEdad(formData.fechaNacimiento) : 0,
-        deportes: [], // Por ahora vacío
         promocionesIds: selectedPromociones,
       };
 

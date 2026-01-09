@@ -24,9 +24,7 @@ public class PersonaController {
     @Operation(summary = "Obtiene todas las personas")
     public ResponseEntity<List<Persona>> getPersonas() {
         List<Persona> personas = personaService.getAllPersonas();
-        ResponseEntity<List<Persona>> response = ResponseEntity.noContent().build();
-        if(!personas.isEmpty()) response = ResponseEntity.ok(personas);
-        return response;
+        return ResponseEntity.ok(personas);
     }
 
     @GetMapping("/persona/{id}")

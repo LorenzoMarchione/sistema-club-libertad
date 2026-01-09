@@ -26,14 +26,18 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAssociateDialogOpen, setIsAssociateDialogOpen] = useState(false);
   const [editingDeporte, setEditingDeporte] = useState<Deporte | null>(null);
-  const [formData, setFormData] = useState<Omit<Deporte, 'id'>>({ nombre: '', cuotaMensual: 0 });
+  const [formData, setFormData] = useState<{ nombre: string; descripcion?: string; cuotaEntrenador: number; cuotaSeguro: number; cuotaSocial: number }>({ nombre: '', descripcion: '', cuotaEntrenador: 0, cuotaSeguro: 0, cuotaSocial: 0 });
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
   const [selectedDeportes, setSelectedDeportes] = useState<number[]>([]);
   const [searchPersona, setSearchPersona] = useState<string>('');
-  const [formErrors, setFormErrors] = useState<{ nombre: boolean; cuotaMensual: boolean }>({
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; cuotaEntrenador: boolean; cuotaSeguro: boolean; cuotaSocial: boolean }>({
     nombre: false,
-    cuotaMensual: false,
+    cuotaEntrenador: false,
+    cuotaSeguro: false,
+    cuotaSocial: false,
   });
+
+  const totalCuota = (formData.cuotaEntrenador ?? 0) + (formData.cuotaSeguro ?? 0) + (formData.cuotaSocial ?? 0);
 
   // Cargar deportes desde el backend
   const loadDeportes = async () => {
@@ -72,20 +76,24 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
       setFormData({
         nombre: deporte.nombre,
         descripcion: deporte.descripcion ?? '',
-        cuotaMensual: deporte.cuotaMensual,
+        cuotaEntrenador: deporte.cuotaEntrenador ?? 0,
+        cuotaSeguro: deporte.cuotaSeguro ?? 0,
+        cuotaSocial: deporte.cuotaSocial ?? 0,
       });
     } else {
       setEditingDeporte(null);
-      setFormData({ nombre: '', descripcion: '', cuotaMensual: 0 });
+      setFormData({ nombre: '', descripcion: '', cuotaEntrenador: 0, cuotaSeguro: 0, cuotaSocial: 0 });
     }
-    setFormErrors({ nombre: false, cuotaMensual: false });
+    setFormErrors({ nombre: false, cuotaEntrenador: false, cuotaSeguro: false, cuotaSocial: false });
     setIsDialogOpen(true);
   };
 
   const handleSave = async () => {
     const errors = {
       nombre: !(formData.nombre && formData.nombre.trim().length > 0),
-      cuotaMensual: !formData.cuotaMensual || formData.cuotaMensual === 0,
+      cuotaEntrenador: formData.cuotaEntrenador === null || formData.cuotaEntrenador === undefined,
+      cuotaSeguro: formData.cuotaSeguro === null || formData.cuotaSeguro === undefined,
+      cuotaSocial: formData.cuotaSocial === null || formData.cuotaSocial === undefined,
     };
 
     setFormErrors(errors);
@@ -94,12 +102,20 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
       return;
     }
 
+    const payload = {
+      nombre: formData.nombre,
+      descripcion: formData.descripcion,
+      cuotaEntrenador: formData.cuotaEntrenador,
+      cuotaSeguro: formData.cuotaSeguro,
+      cuotaSocial: formData.cuotaSocial,
+    };
+
     try {
       if (editingDeporte && editingDeporte.id) {
-        await deporteService.update(editingDeporte.id, formData);
+        await deporteService.update(editingDeporte.id, payload);
         toast.success('Deporte actualizado correctamente');
       } else {
-        await deporteService.create(formData);
+        await deporteService.create(payload);
         toast.success('Deporte registrado correctamente');
       }
       setIsDialogOpen(false);
@@ -364,29 +380,73 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                       }
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cuotaMensual">Cuota Mensual ($) *</Label>
-                    <Input
-                      id="cuotaMensual"
-                      type="number"
-                      value={formData.cuotaMensual === 0 ? '' : formData.cuotaMensual}
-                      onChange={(e) => {
-                        setFormData({
-                          ...formData,
-                          cuotaMensual: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0,
-                        });
-                        if (e.target.value !== '' && parseFloat(e.target.value) > 0) {
-                          setFormErrors(prev => ({ ...prev, cuotaMensual: false }));
-                        }
-                      }}
-                      required
-                      min="0"
-                      step="0.01"
-                      className={formErrors.cuotaMensual ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
-                    />
-                    {formErrors.cuotaMensual && (
-                      <p className="text-xs text-red-600">La cuota mensual debe ser mayor a 0</p>
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cuotaEntrenador">Cuota Entrenador ($) *</Label>
+                      <Input
+                        id="cuotaEntrenador"
+                        type="number"
+                        value={formData.cuotaEntrenador === 0 ? '' : formData.cuotaEntrenador}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                          setFormData({ ...formData, cuotaEntrenador: value });
+                          setFormErrors(prev => ({ ...prev, cuotaEntrenador: false }));
+                        }}
+                        required
+                        min="0"
+                        step="0.01"
+                        className={formErrors.cuotaEntrenador ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
+                      />
+                      {formErrors.cuotaEntrenador && (
+                        <p className="text-xs text-red-600">Ingresa la cuota de entrenador</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cuotaSeguro">Cuota Seguro ($) *</Label>
+                      <Input
+                        id="cuotaSeguro"
+                        type="number"
+                        value={formData.cuotaSeguro === 0 ? '' : formData.cuotaSeguro}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                          setFormData({ ...formData, cuotaSeguro: value });
+                          setFormErrors(prev => ({ ...prev, cuotaSeguro: false }));
+                        }}
+                        required
+                        min="0"
+                        step="0.01"
+                        className={formErrors.cuotaSeguro ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
+                      />
+                      {formErrors.cuotaSeguro && (
+                        <p className="text-xs text-red-600">Ingresa la cuota de seguro</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cuotaSocial">Cuota Social ($) *</Label>
+                      <Input
+                        id="cuotaSocial"
+                        type="number"
+                        value={formData.cuotaSocial === 0 ? '' : formData.cuotaSocial}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                          setFormData({ ...formData, cuotaSocial: value });
+                          setFormErrors(prev => ({ ...prev, cuotaSocial: false }));
+                        }}
+                        required
+                        min="0"
+                        step="0.01"
+                        className={formErrors.cuotaSocial ? 'border-red-500 focus-visible:ring-red-500 bg-red-50' : ''}
+                      />
+                      {formErrors.cuotaSocial && (
+                        <p className="text-xs text-red-600">Ingresa la cuota social</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Total Cuota Mensual (suma)</Label>
+                      <div className="p-3 rounded-md border bg-gray-50 font-semibold">
+                        ${totalCuota.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">

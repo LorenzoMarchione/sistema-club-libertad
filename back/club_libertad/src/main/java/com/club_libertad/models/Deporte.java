@@ -28,6 +28,12 @@ public class Deporte {
     private String descripcion;
     @Column(name = "cuota_mensual", nullable = false, precision = 10, scale = 2)
     private BigDecimal cuotaMensual = BigDecimal.ZERO;
+    @Column(name = "cuota_entrenador", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaEntrenador = BigDecimal.ZERO;
+    @Column(name = "cuota_seguro", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaSeguro = BigDecimal.ZERO;
+    @Column(name = "cuota_social", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaSocial = BigDecimal.ZERO;
     @JsonIgnore
     @ManyToMany(mappedBy = "deportes")
     private Set<Persona> personas = new HashSet<>();
