@@ -8,6 +8,7 @@ import com.club_libertad.models.Inscripcion;
 import com.club_libertad.models.Persona;
 import com.club_libertad.models.Promocion;
 import com.club_libertad.repositories.CuotaRepository;
+import com.club_libertad.repositories.DeporteRepository;
 import com.club_libertad.repositories.InscripcionRepository;
 import com.club_libertad.repositories.PersonaRepository;
 import org.springframework.stereotype.Service;
@@ -25,11 +26,13 @@ public class CuotaService {
     private final CuotaRepository cuotaRepository;
     private final InscripcionRepository inscripcionRepository;
     private final PersonaRepository personaRepository;
+    private final DeporteRepository deporteRepository;
     
-    public CuotaService(CuotaRepository cuotaRepository, InscripcionRepository inscripcionRepository, PersonaRepository personaRepository) {
+    public CuotaService(CuotaRepository cuotaRepository, InscripcionRepository inscripcionRepository, PersonaRepository personaRepository, DeporteRepository deporteRepository) {
         this.cuotaRepository = cuotaRepository;
         this.inscripcionRepository = inscripcionRepository;
         this.personaRepository = personaRepository;
+        this.deporteRepository = deporteRepository;
     }
 
     // Método auxiliar para calcular monto con descuentos de promociones
@@ -63,22 +66,29 @@ public class CuotaService {
     @Transactional
     public Optional<Long> saveCuota(CuotaDTO cuotaTransfer){
         Cuota cuotaCreate = new Cuota();
-        Persona personaExisting = new Persona();
-        personaExisting.setId(cuotaTransfer.getPersonaId());
+        Optional<Persona> personaOpt = personaRepository.findById(cuotaTransfer.getPersonaId());
+        Optional<Deporte> deporteOpt = deporteRepository.findById(cuotaTransfer.getDeporteId());
+        if(personaOpt.isEmpty() || deporteOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        Persona personaExisting = personaOpt.get();
+        Deporte deporteExisting = deporteOpt.get();
         cuotaCreate.setPersonaId(personaExisting);
-        Deporte deporteExisting = new Deporte();
-        deporteExisting.setId(cuotaTransfer.getDeporteId());
         cuotaCreate.setDeporteId(deporteExisting);
         cuotaCreate.setPeriodo(cuotaTransfer.getPeriodo());
         
-        // Aplicar descuentos de promociones si la persona los tiene
-        BigDecimal montoBase = cuotaTransfer.getMonto();
-        Optional<Persona> personaOpt = personaRepository.findById(cuotaTransfer.getPersonaId());
-        if(personaOpt.isPresent()) {
-            Set<Promocion> promociones = personaOpt.get().getPromociones();
-            montoBase = aplicarDescuentosPromociones(montoBase, promociones);
-        }
-        cuotaCreate.setMonto(montoBase);
+        BigDecimal cuotaEntrenador = deporteExisting.getCuotaEntrenador() != null ? deporteExisting.getCuotaEntrenador() : BigDecimal.ZERO;
+        BigDecimal cuotaSeguro = deporteExisting.getCuotaSeguro() != null ? deporteExisting.getCuotaSeguro() : BigDecimal.ZERO;
+        BigDecimal cuotaSocial = deporteExisting.getCuotaSocial() != null ? deporteExisting.getCuotaSocial() : BigDecimal.ZERO;
+        BigDecimal montoBase = cuotaEntrenador.add(cuotaSeguro).add(cuotaSocial);
+
+        Set<Promocion> promociones = personaExisting.getPromociones();
+        BigDecimal montoFinal = aplicarDescuentosPromociones(montoBase, promociones);
+
+        cuotaCreate.setCuotaEntrenador(cuotaEntrenador);
+        cuotaCreate.setCuotaSeguro(cuotaSeguro);
+        cuotaCreate.setCuotaSocial(cuotaSocial);
+        cuotaCreate.setMonto(montoFinal);
         
         cuotaCreate.setEstado(cuotaTransfer.getEstado());
         if(cuotaTransfer.getFechaVencimiento() != null) cuotaCreate.setFechaVencimiento(cuotaTransfer.getFechaVencimiento());
@@ -123,9 +133,15 @@ public class CuotaService {
                 nuevaCuota.setPeriodo(primerDiaMes);
                 
                 // Aplicar descuentos de promociones si la persona los tiene
-                BigDecimal montoBase = inscripcion.getDeporteId().getCuotaMensual();
+                BigDecimal cuotaEntrenador = inscripcion.getDeporteId().getCuotaEntrenador() != null ? inscripcion.getDeporteId().getCuotaEntrenador() : BigDecimal.ZERO;
+                BigDecimal cuotaSeguro = inscripcion.getDeporteId().getCuotaSeguro() != null ? inscripcion.getDeporteId().getCuotaSeguro() : BigDecimal.ZERO;
+                BigDecimal cuotaSocial = inscripcion.getDeporteId().getCuotaSocial() != null ? inscripcion.getDeporteId().getCuotaSocial() : BigDecimal.ZERO;
+                BigDecimal montoBase = cuotaEntrenador.add(cuotaSeguro).add(cuotaSocial);
                 Set<Promocion> promociones = inscripcion.getPersonaId().getPromociones();
                 BigDecimal montoFinal = aplicarDescuentosPromociones(montoBase, promociones);
+                nuevaCuota.setCuotaEntrenador(cuotaEntrenador);
+                nuevaCuota.setCuotaSeguro(cuotaSeguro);
+                nuevaCuota.setCuotaSocial(cuotaSocial);
                 nuevaCuota.setMonto(montoFinal);
                 
                 nuevaCuota.setEstado(EstadoCuota.GENERADA);

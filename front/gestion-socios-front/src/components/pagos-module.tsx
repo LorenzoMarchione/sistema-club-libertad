@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
+import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner@2.0.3';
 import cuotaService from '../services/cuotaService';
@@ -48,6 +48,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [searchCuota, setSearchCuota] = useState<string>('');
   const [filterDeportePago, setFilterDeportePago] = useState<string>('all');
   const [filterMesPago, setFilterMesPago] = useState<string>('all');
+  const [expandedPagos, setExpandedPagos] = useState<Set<string>>(new Set());
 
   // Helper para extraer mes-año de periodo sin problemas de timezone
   const getMesAno = (periodo: string) => {
@@ -244,6 +245,18 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       DEBITO_AUTOMATICO: 'Débito Automático',
     };
     return labels[metodo as keyof typeof labels] || metodo;
+  };
+
+  const togglePagoExpanded = (pagoId: string) => {
+    setExpandedPagos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(pagoId)) {
+        newSet.delete(pagoId);
+      } else {
+        newSet.add(pagoId);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -576,6 +589,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10"></TableHead>
                       <TableHead>Nombre y Apellido</TableHead>
                       <TableHead>DNI</TableHead>
                       <TableHead>Cuotas Pagadas</TableHead>
@@ -613,20 +627,64 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                             return deporte?.nombre || 'Deporte desconocido';
                           })
                           .join(', ');
+                        const isExpanded = expandedPagos.has(String(pago.id));
+                        const hasConceptos = (pago.cuotaEntrenador || pago.cuotaSeguro || pago.cuotaSocial);
+                        
                         return (
-                          <TableRow key={pago.id}>
-                            <TableCell>{socio ? `${socio.nombre} ${socio.apellido}` : '—'}</TableCell>
-                            <TableCell>{socio?.dni || '—'}</TableCell>
-                            <TableCell>{deportesNombres || '—'}</TableCell>
-                            <TableCell>${(pago.montoTotal || 0).toLocaleString()}</TableCell>
-                            <TableCell>{pago.fechaPago ? new Date(pago.fechaPago).toLocaleDateString('es-ES') : '—'}</TableCell>
-                            <TableCell>{pago.observaciones || '—'}</TableCell>
-                          </TableRow>
+                          <>
+                            <TableRow key={pago.id} className="cursor-pointer hover:bg-gray-50" onClick={() => togglePagoExpanded(String(pago.id))}>
+                              <TableCell>
+                                {hasConceptos ? (
+                                  isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+                                ) : null}
+                              </TableCell>
+                              <TableCell>{socio ? `${socio.nombre} ${socio.apellido}` : '—'}</TableCell>
+                              <TableCell>{socio?.dni || '—'}</TableCell>
+                              <TableCell>{deportesNombres || '—'}</TableCell>
+                              <TableCell>${(pago.montoTotal || 0).toLocaleString()}</TableCell>
+                              <TableCell>{pago.fechaPago ? new Date(pago.fechaPago).toLocaleDateString('es-ES') : '—'}</TableCell>
+                              <TableCell>{pago.observaciones || '—'}</TableCell>
+                            </TableRow>
+                            {isExpanded && hasConceptos && (
+                              <TableRow key={`${pago.id}-desglose`} className="bg-gray-50">
+                                <TableCell colSpan={7} className="py-3 px-6">
+                                  <div className="space-y-2">
+                                    <p className="text-sm font-semibold text-gray-700">Desglose de conceptos:</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                      {pago.cuotaEntrenador > 0 && (
+                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
+                                          <span className="text-gray-600">Entrenador:</span>
+                                          <span className="font-semibold">${(pago.cuotaEntrenador || 0).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {pago.cuotaSeguro > 0 && (
+                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
+                                          <span className="text-gray-600">Seguro:</span>
+                                          <span className="font-semibold">${(pago.cuotaSeguro || 0).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {pago.cuotaSocial > 0 && (
+                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
+                                          <span className="text-gray-600">Social:</span>
+                                          <span className="font-semibold">${(pago.cuotaSocial || 0).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {pago.montoTotal !== (pago.cuotaEntrenador + pago.cuotaSeguro + pago.cuotaSocial) && (
+                                      <p className="text-xs text-gray-500 mt-2">
+                                        * El monto total puede diferir de la suma por promociones aplicadas
+                                      </p>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </>
                         );
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-gray-500">No hay pagos registrados</TableCell>
+                        <TableCell colSpan={7} className="text-center text-gray-500">No hay pagos registrados</TableCell>
                       </TableRow>
                     )}
                   </TableBody>

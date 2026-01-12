@@ -28,6 +28,12 @@ public class Pago {
     private LocalDate fechaPago;
     @Column(name = "monto_total",nullable = false, precision = 10, scale = 2, columnDefinition = "numeric(10,2) default 0")
     private BigDecimal montoTotal = BigDecimal.ZERO;
+    @Column(name = "cuota_entrenador", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaEntrenador = BigDecimal.ZERO;
+    @Column(name = "cuota_seguro", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaSeguro = BigDecimal.ZERO;
+    @Column(name = "cuota_social", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaSocial = BigDecimal.ZERO;
     @Enumerated(EnumType.STRING)
     @Column(name = "metodo_pago")
     private MetodoPago metodoPago;

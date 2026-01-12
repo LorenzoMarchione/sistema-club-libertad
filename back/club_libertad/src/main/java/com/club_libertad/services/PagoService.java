@@ -37,9 +37,32 @@ public class PagoService {
         socioExisting.setId(pagoTransfer.getSocioId());
         pagoCreate.setSocioId(socioExisting);
         pagoCreate.setFechaPago(pagoTransfer.getFechaPago());
-        pagoCreate.setMontoTotal(pagoTransfer.getMontoTotal() != null ? pagoTransfer.getMontoTotal() : BigDecimal.ZERO);
         if(pagoTransfer.getMetodoPago() != null) pagoCreate.setMetodoPago(pagoTransfer.getMetodoPago());
         if(pagoTransfer.getObservaciones() != null) pagoCreate.setObservaciones(pagoTransfer.getObservaciones());
+        
+        // Calculate fee components from cuotas (without discount) and total with discounts
+        BigDecimal totalEntrenador = BigDecimal.ZERO;
+        BigDecimal totalSeguro = BigDecimal.ZERO;
+        BigDecimal totalSocial = BigDecimal.ZERO;
+        BigDecimal montoTotalConDescuento = BigDecimal.ZERO;
+        
+        if(pagoTransfer.getCuotaIds() != null && !pagoTransfer.getCuotaIds().isEmpty()) {
+            for(Long cuotaId : pagoTransfer.getCuotaIds()) {
+                Optional<Cuota> cuotaOpt = cuotaRepository.findById(cuotaId);
+                if(cuotaOpt.isPresent()) {
+                    Cuota cuota = cuotaOpt.get();
+                    totalEntrenador = totalEntrenador.add(cuota.getCuotaEntrenador() != null ? cuota.getCuotaEntrenador() : BigDecimal.ZERO);
+                    totalSeguro = totalSeguro.add(cuota.getCuotaSeguro() != null ? cuota.getCuotaSeguro() : BigDecimal.ZERO);
+                    totalSocial = totalSocial.add(cuota.getCuotaSocial() != null ? cuota.getCuotaSocial() : BigDecimal.ZERO);
+                    montoTotalConDescuento = montoTotalConDescuento.add(cuota.getMonto() != null ? cuota.getMonto() : BigDecimal.ZERO);
+                }
+            }
+        }
+        
+        pagoCreate.setCuotaEntrenador(totalEntrenador);
+        pagoCreate.setCuotaSeguro(totalSeguro);
+        pagoCreate.setCuotaSocial(totalSocial);
+        pagoCreate.setMontoTotal(montoTotalConDescuento);
         
         // Save pago first to get its ID
         Pago pagoCreated = pagoRepository.save(pagoCreate);
