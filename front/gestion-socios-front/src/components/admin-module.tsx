@@ -12,12 +12,13 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Progress } from './ui/progress';
 import { toast } from 'sonner@2.0.3';
 import backupService, { BackupInfo } from '../services/backupService';
+import usuarioService from '../services/usuarioService';
+import { Usuario as UsuarioApi } from '../types/usuario';
 import api from '../services/api';
 
 interface Usuario {
-  id: string;
+  id: number;
   nombre: string;
-  email: string;
   rol: 'admin' | 'secretario';
   estado: 'activo' | 'inactivo';
   ultimoAcceso: string;
@@ -31,32 +32,7 @@ interface BackupRow {
 }
 
 export function AdminModule() {
-  const [usuarios, setUsuarios] = useState<Usuario[]>([
-    {
-      id: '1',
-      nombre: 'Juan Pérez',
-      email: 'admin@club.com',
-      rol: 'admin',
-      estado: 'activo',
-      ultimoAcceso: '2025-11-03 09:30',
-    },
-    {
-      id: '2',
-      nombre: 'María García',
-      email: 'secretario@club.com',
-      rol: 'secretario',
-      estado: 'activo',
-      ultimoAcceso: '2025-11-03 10:15',
-    },
-    {
-      id: '3',
-      nombre: 'Carlos López',
-      email: 'carlos.lopez@club.com',
-      rol: 'secretario',
-      estado: 'inactivo',
-      ultimoAcceso: '2025-10-28 16:45',
-    },
-  ]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
   const [backups, setBackups] = useState<BackupRow[]>([]);
 
@@ -70,37 +46,36 @@ export function AdminModule() {
   const [restoringFile, setRestoringFile] = useState<string | null>(null);
 
   const handleCrearUsuario = () => {
-    if (!formData.nombre || !formData.email) {
-      toast.error('Complete todos los campos obligatorios');
-      return;
-    }
-
-    const nuevoUsuario: Usuario = {
-      id: Date.now().toString(),
-      nombre: formData.nombre,
-      email: formData.email,
-      rol: formData.rol || 'secretario',
-      estado: formData.estado || 'activo',
-      ultimoAcceso: '-',
-    };
-
-    setUsuarios([...usuarios, nuevoUsuario]);
-    toast.success('Usuario creado correctamente. Contraseña temporal enviada por email.');
-    setIsDialogOpen(false);
-    setFormData({ rol: 'secretario', estado: 'activo' });
+    toast.error('Alta de usuarios pendiente de implementación de endpoint seguro');
   };
 
-  const handleCambiarEstado = (id: string) => {
-    setUsuarios(usuarios.map(u => {
-      if (u.id === id) {
-        return {
-          ...u,
-          estado: u.estado === 'activo' ? 'inactivo' : 'activo',
-        };
-      }
-      return u;
-    }));
-    toast.success('Estado del usuario actualizado');
+  const handleCambiarEstado = async (id: number) => {
+    try {
+      await usuarioService.toggleEstado(id);
+      toast.success('Estado actualizado');
+      await cargarUsuarios();
+    } catch (error) {
+      console.error('Error al actualizar estado:', error);
+      toast.error('No se pudo actualizar el estado');
+    }
+  };
+
+  const cargarUsuarios = async () => {
+    try {
+      const res = await usuarioService.getAll();
+      const data = Array.isArray(res.data) ? res.data : [];
+      const mapped: Usuario[] = (data as UsuarioApi[]).map(u => ({
+        id: u.id,
+        nombre: u.username,
+        rol: u.role.toLowerCase() as 'admin' | 'secretario',
+        estado: u.activo ? 'activo' : 'inactivo',
+        ultimoAcceso: u.ultimoAcceso ? new Date(u.ultimoAcceso).toLocaleString() : '-',
+      }));
+      setUsuarios(mapped);
+    } catch (error) {
+      console.error('Error al cargar usuarios:', error);
+      toast.error('No se pudieron cargar los usuarios');
+    }
   };
 
   const cargarBackups = async () => {
@@ -121,6 +96,7 @@ export function AdminModule() {
 
   useEffect(() => {
     cargarBackups();
+    cargarUsuarios();
   }, []);
 
   const handleCrearBackup = async () => {
@@ -210,20 +186,11 @@ export function AdminModule() {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="nombre">Nombre Completo *</Label>
+                    <Label htmlFor="nombre">Username *</Label>
                     <Input
                       id="nombre"
                       value={formData.nombre || ''}
                       onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email || ''}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -264,10 +231,8 @@ export function AdminModule() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Email</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Último Acceso</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -275,7 +240,6 @@ export function AdminModule() {
                 {usuarios.map((usuario) => (
                   <TableRow key={usuario.id}>
                     <TableCell>{usuario.nombre}</TableCell>
-                    <TableCell>{usuario.email}</TableCell>
                     <TableCell>
                       <Badge variant={usuario.rol === 'admin' ? 'default' : 'secondary'}>
                         <Shield className="w-3 h-3 mr-1" />
@@ -287,7 +251,6 @@ export function AdminModule() {
                         {usuario.estado}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{usuario.ultimoAcceso}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="outline"

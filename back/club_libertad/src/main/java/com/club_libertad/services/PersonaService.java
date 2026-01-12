@@ -6,7 +6,13 @@ import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.DeporteRepository;
 import com.club_libertad.repositories.PersonaRepository;
 import com.club_libertad.repositories.RegistroRepository;
+import com.club_libertad.repositories.InscripcionRepository;
+import com.club_libertad.repositories.CuotaRepository;
+import com.club_libertad.repositories.PromocionRepository;
 import com.club_libertad.models.Registro;
+import com.club_libertad.models.Inscripcion;
+import com.club_libertad.models.Cuota;
+import com.club_libertad.models.Promocion;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,11 +27,17 @@ public class PersonaService {
     private final PersonaRepository personaRepository;
     private final DeporteRepository deporteRepository;
     private final RegistroRepository registroRepository;
+    private final InscripcionRepository inscripcionRepository;
+    private final CuotaRepository cuotaRepository;
+    private final PromocionRepository promocionRepository;
 
-    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository) {
+    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository, InscripcionRepository inscripcionRepository, CuotaRepository cuotaRepository, PromocionRepository promocionRepository) {
         this.personaRepository = personaRepository;
         this.deporteRepository = deporteRepository;
         this.registroRepository = registroRepository;
+        this.inscripcionRepository = inscripcionRepository;
+        this.cuotaRepository = cuotaRepository;
+        this.promocionRepository = promocionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -60,6 +72,17 @@ public class PersonaService {
             personaCreate.setSocioResponsable(socioResponsable);
         }
         Persona p = personaRepository.save(personaCreate);
+        
+        // Asignar promociones si vienen en el DTO
+        if(personaTransfer.getPromocionesIds() != null && !personaTransfer.getPromocionesIds().isEmpty()) {
+            for(Long promoId : personaTransfer.getPromocionesIds()) {
+                Optional<Promocion> promoOpt = promocionRepository.findById(promoId);
+                if(promoOpt.isPresent()) {
+                    p.getPromociones().add(promoOpt.get());
+                }
+            }
+            personaRepository.save(p);
+        }
 
         // Crear registro inmutable asociado a la creación de la persona
         Registro registro = new Registro();
@@ -95,6 +118,7 @@ public class PersonaService {
             if(personaUpdate.getDireccion() != null) persona.get().setDireccion(personaUpdate.getDireccion());
             if(personaUpdate.getCategoria() != null) persona.get().setCategoria(personaUpdate.getCategoria());
             if(personaUpdate.getSocioResponsable() != null) persona.get().setSocioResponsable(personaUpdate.getSocioResponsable());
+            if(personaUpdate.getPromociones() != null) persona.get().setPromociones(personaUpdate.getPromociones());
             b = true;
         }
         return b;
@@ -131,10 +155,43 @@ public class PersonaService {
     }
 
     @Transactional
-    public boolean deletePersonaById(Long id){
+    public boolean deletePersonaById(Long id, String observacionBaja){
         if(personaRepository.existsById(id)){
-            personaRepository.deleteById(id);
-            return true;
+            Optional<Persona> persona = personaRepository.findById(id);
+            if(persona.isPresent()){
+                // 0. Actualizar el registro con la fecha de baja y observación
+                String dni = persona.get().getDni();
+                Optional<Registro> registro = registroRepository.findByDni(dni);
+                if(registro.isPresent()) {
+                    registro.get().setFechaBaja(ZonedDateTime.now());
+                    if(observacionBaja != null && !observacionBaja.trim().isEmpty()) {
+                        registro.get().setObservacionBaja(observacionBaja);
+                    }
+                    registroRepository.save(registro.get());
+                }
+                
+                // 1. Eliminar todas las cuotas asociadas a esta persona
+                cuotaRepository.deleteByPersonaId_Id(id);
+                
+                // 2. Eliminar todas las inscripciones de esta persona
+                inscripcionRepository.deleteByPersonaId_Id(id);
+                
+                // 3. Desasociar deportes (relación many-to-many)
+                persona.get().getDeportes().clear();
+                personaRepository.save(persona.get());
+                
+                // 4. Eliminar referencias como socioResponsable de otras personas
+                List<Persona> personasDependientes = personaRepository.findAll().stream()
+                    .filter(p -> p.getSocioResponsable() != null && p.getSocioResponsable().getId().equals(id))
+                    .toList();
+                for(Persona p : personasDependientes){
+                    p.setSocioResponsable(null);
+                }
+                
+                // 5. Finalmente, eliminar la persona
+                personaRepository.deleteById(id);
+                return true;
+            }
         }
         return false;
     }

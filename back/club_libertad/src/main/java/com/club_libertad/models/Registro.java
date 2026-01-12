@@ -32,4 +32,10 @@ public class Registro {
 
     @Column(name = "fecha_registro", nullable = false)
     private ZonedDateTime fechaRegistro;
+
+    @Column(name = "fecha_baja")
+    private ZonedDateTime fechaBaja;
+
+    @Column(name = "observacion_baja", columnDefinition = "TEXT")
+    private String observacionBaja;
 }

@@ -37,25 +37,32 @@ public class PagoService {
         socioExisting.setId(pagoTransfer.getSocioId());
         pagoCreate.setSocioId(socioExisting);
         pagoCreate.setFechaPago(pagoTransfer.getFechaPago());
-        // Calcular montoOriginal a partir de las cuotas
-        BigDecimal montoOriginal = BigDecimal.ZERO;
+        if(pagoTransfer.getMetodoPago() != null) pagoCreate.setMetodoPago(pagoTransfer.getMetodoPago());
+        if(pagoTransfer.getObservaciones() != null) pagoCreate.setObservaciones(pagoTransfer.getObservaciones());
+        
+        // Calculate fee components from cuotas (without discount) and total with discounts
+        BigDecimal totalEntrenador = BigDecimal.ZERO;
+        BigDecimal totalSeguro = BigDecimal.ZERO;
+        BigDecimal totalSocial = BigDecimal.ZERO;
+        BigDecimal montoTotalConDescuento = BigDecimal.ZERO;
+        
         if(pagoTransfer.getCuotaIds() != null && !pagoTransfer.getCuotaIds().isEmpty()) {
             for(Long cuotaId : pagoTransfer.getCuotaIds()) {
                 Optional<Cuota> cuotaOpt = cuotaRepository.findById(cuotaId);
                 if(cuotaOpt.isPresent()) {
                     Cuota cuota = cuotaOpt.get();
-                    montoOriginal = montoOriginal.add(cuota.getMonto());
+                    totalEntrenador = totalEntrenador.add(cuota.getCuotaEntrenador() != null ? cuota.getCuotaEntrenador() : BigDecimal.ZERO);
+                    totalSeguro = totalSeguro.add(cuota.getCuotaSeguro() != null ? cuota.getCuotaSeguro() : BigDecimal.ZERO);
+                    totalSocial = totalSocial.add(cuota.getCuotaSocial() != null ? cuota.getCuotaSocial() : BigDecimal.ZERO);
+                    montoTotalConDescuento = montoTotalConDescuento.add(cuota.getMonto() != null ? cuota.getMonto() : BigDecimal.ZERO);
                 }
             }
         }
-
-        // Si viene informado desde frontend, se usa; si no, se toma 0
-        BigDecimal montoDescuento = pagoTransfer.getMontoDescuento() != null ? pagoTransfer.getMontoDescuento() : BigDecimal.ZERO;
-        pagoCreate.setMontoOriginal(pagoTransfer.getMontoOriginal() != null ? pagoTransfer.getMontoOriginal() : montoOriginal);
-        pagoCreate.setMontoDescuento(montoDescuento);
-        pagoCreate.setMontoTotal(pagoCreate.getMontoOriginal().subtract(montoDescuento));
-        if(pagoTransfer.getMetodoPago() != null) pagoCreate.setMetodoPago(pagoTransfer.getMetodoPago());
-        if(pagoTransfer.getObservaciones() != null) pagoCreate.setObservaciones(pagoTransfer.getObservaciones());
+        
+        pagoCreate.setCuotaEntrenador(totalEntrenador);
+        pagoCreate.setCuotaSeguro(totalSeguro);
+        pagoCreate.setCuotaSocial(totalSocial);
+        pagoCreate.setMontoTotal(montoTotalConDescuento);
         
         // Save pago first to get its ID
         Pago pagoCreated = pagoRepository.save(pagoCreate);

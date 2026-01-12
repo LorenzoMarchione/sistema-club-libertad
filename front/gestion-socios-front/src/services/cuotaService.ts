@@ -7,6 +7,7 @@ const CUOTA_ENDPOINTS = {
   CREATE: '/cuota',
   CHANGE_STATE: (id: number) => `/cuota/${id}`,
   GENERAR_MES_ACTUAL: '/cuotas/generar-mes-actual',
+  ACTUALIZAR_VENCIDAS: '/cuotas/actualizar-vencidas',
 };
 
 const cuotaService = {
@@ -41,6 +42,13 @@ const cuotaService = {
   generarCuotasMesActual() {
     return api.post<string>(CUOTA_ENDPOINTS.GENERAR_MES_ACTUAL).catch(error => {
       console.error('Error al generar cuotas del mes actual:', error);
+      throw error;
+    });
+  },
+
+  actualizarCuotasVencidas() {
+    return api.post<string>(CUOTA_ENDPOINTS.ACTUALIZAR_VENCIDAS).catch(error => {
+      console.error('Error al actualizar cuotas vencidas:', error);
       throw error;
     });
   },

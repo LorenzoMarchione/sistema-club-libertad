@@ -35,6 +35,12 @@ public class Cuota {
     private LocalDate periodo;
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal monto;
+    @Column(name = "cuota_entrenador", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaEntrenador = BigDecimal.ZERO;
+    @Column(name = "cuota_seguro", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaSeguro = BigDecimal.ZERO;
+    @Column(name = "cuota_social", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaSocial = BigDecimal.ZERO;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EstadoCuota estado;

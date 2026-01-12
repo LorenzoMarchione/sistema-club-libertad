@@ -346,7 +346,6 @@ export function PromocionesModule({ userRole }: PromocionesModuleProps) {
                       <TableCell className="max-w-md">{promocion.descripcion || '—'}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="gap-1">
-                          <Percent className="w-3 h-3" />
                           {promocion.tipoDescuento === 'PORCENTAJE' 
                             ? `${promocion.descuento}%`
                             : `$${promocion.descuento}`

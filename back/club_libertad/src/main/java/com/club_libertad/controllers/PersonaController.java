@@ -24,9 +24,7 @@ public class PersonaController {
     @Operation(summary = "Obtiene todas las personas")
     public ResponseEntity<List<Persona>> getPersonas() {
         List<Persona> personas = personaService.getAllPersonas();
-        ResponseEntity<List<Persona>> response = ResponseEntity.noContent().build();
-        if(!personas.isEmpty()) response = ResponseEntity.ok(personas);
-        return response;
+        return ResponseEntity.ok(personas);
     }
 
     @GetMapping("/persona/{id}")
@@ -98,8 +96,8 @@ public class PersonaController {
 
     @DeleteMapping("/persona/{id}")
     @Operation(summary = "Elimina una persona por su id")
-    public ResponseEntity<String> deletePersona(@PathVariable Long id) {
-        boolean b = personaService.deletePersonaById(id);
+    public ResponseEntity<String> deletePersona(@PathVariable Long id, @RequestParam(required = false) String observacionBaja) {
+        boolean b = personaService.deletePersonaById(id, observacionBaja);
         if(b) return ResponseEntity.ok("Persona con id " + id + " eliminada con exito");
         return ResponseEntity.notFound().build();
     }

@@ -1,15 +1,23 @@
 package com.club_libertad.models;
 
 import com.club_libertad.enums.TipoDescuento;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "promocion")
 @Data
+@EqualsAndHashCode(exclude = {"personas"})
 @NoArgsConstructor
 public class Promocion {
     @Id
@@ -31,4 +39,15 @@ public class Promocion {
     
     @Column(nullable = false)
     private Boolean activo = true;
+    
+    @JsonIgnore
+    @ManyToMany(mappedBy = "promociones")
+    private Set<Persona> personas = new HashSet<>();
+
+    @JsonProperty("personasIds")
+    public List<Long> getPersonasIds() {
+        return personas != null ? personas.stream()
+                .map(Persona::getId)
+                .collect(Collectors.toList()) : null;
+    }
 }

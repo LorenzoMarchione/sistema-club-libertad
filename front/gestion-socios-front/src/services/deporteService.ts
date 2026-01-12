@@ -25,7 +25,7 @@ const deporteService = {
     });
   },
 
-  create(deporte: Omit<Deporte, 'id'>) {
+  create(deporte: { nombre: string; descripcion?: string; cuotaEntrenador: number; cuotaSeguro: number; cuotaSocial: number }) {
     return api.post<string>(DEPORTE_ENDPOINTS.CREATE, deporte).catch(error => {
       console.error('Error al crear deporte:', error);
       throw error;
