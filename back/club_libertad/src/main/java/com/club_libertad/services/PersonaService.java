@@ -8,6 +8,7 @@ import com.club_libertad.repositories.PersonaRepository;
 import com.club_libertad.repositories.RegistroRepository;
 import com.club_libertad.repositories.InscripcionRepository;
 import com.club_libertad.repositories.CuotaRepository;
+import com.club_libertad.repositories.PagoRepository;
 import com.club_libertad.repositories.PromocionRepository;
 import com.club_libertad.models.Registro;
 import com.club_libertad.models.Inscripcion;
@@ -29,14 +30,16 @@ public class PersonaService {
     private final RegistroRepository registroRepository;
     private final InscripcionRepository inscripcionRepository;
     private final CuotaRepository cuotaRepository;
+    private final PagoRepository pagoRepository;
     private final PromocionRepository promocionRepository;
 
-    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository, InscripcionRepository inscripcionRepository, CuotaRepository cuotaRepository, PromocionRepository promocionRepository) {
+    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository, InscripcionRepository inscripcionRepository, CuotaRepository cuotaRepository, PagoRepository pagoRepository, PromocionRepository promocionRepository) {
         this.personaRepository = personaRepository;
         this.deporteRepository = deporteRepository;
         this.registroRepository = registroRepository;
         this.inscripcionRepository = inscripcionRepository;
         this.cuotaRepository = cuotaRepository;
+        this.pagoRepository = pagoRepository;
         this.promocionRepository = promocionRepository;
     }
 
@@ -175,8 +178,12 @@ public class PersonaService {
                 
                 // 2. Eliminar todas las inscripciones de esta persona
                 inscripcionRepository.deleteByPersonaId_Id(id);
+
+                // 2.1 Eliminar todos los pagos asociados a esta persona
+                pagoRepository.deleteBySocioId_Id(id);
                 
-                // 3. Desasociar deportes (relación many-to-many)
+                // 3. Desasociar promociones y deportes (relaciones many-to-many)
+                persona.get().getPromociones().clear();
                 persona.get().getDeportes().clear();
                 personaRepository.save(persona.get());
                 
