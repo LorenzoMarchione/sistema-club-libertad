@@ -1,6 +1,8 @@
 package com.club_libertad.controllers;
 
 import com.club_libertad.dtos.PersonaDTO;
+import com.club_libertad.exceptions.RegistroDuplicadoException;
+import com.club_libertad.models.Registro;
 import com.club_libertad.services.PersonaService;
 import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
@@ -38,7 +40,7 @@ public class PersonaController {
 
     @PostMapping("/persona")
     @Operation(summary = "Crea una persona (Socio o Jugador)", description = "Roles - 0 = SOCIO - 1 = JUGADOR - 2 = SOCIOYJUGADOR")
-    public ResponseEntity<String> createPersona(@RequestBody PersonaDTO personaTransfer) {
+    public ResponseEntity<?> createPersona(@RequestBody PersonaDTO personaTransfer) {
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
                 .body("Error al crear la persona");
@@ -46,10 +48,29 @@ public class PersonaController {
             Optional<Long> id = personaService.savePersona(personaTransfer);
             if(id.isPresent()) response = ResponseEntity.ok("Persona con id " + id.get() + " creada con exito");
         }
-        catch (Exception e){
-            System.out.println(e.getMessage());
+        catch (RegistroDuplicadoException e) {
+            RegistroDuplicadoResponse body = new RegistroDuplicadoResponse(
+                    e.getMessage(),
+                    e.getRegistro()
+            );
+            return ResponseEntity.status(409).body(body);
+        } catch (Exception e){
+            String message = e.getMessage();
+            if (message != null && !message.isBlank()) {
+                return ResponseEntity.status(400).body(message);
+            }
         }
         return response;
+    }
+
+    public static class RegistroDuplicadoResponse {
+        public String message;
+        public Registro registro;
+
+        public RegistroDuplicadoResponse(String message, Registro registro) {
+            this.message = message;
+            this.registro = registro;
+        }
     }
 
     @PatchMapping("/persona/activo/{id}")

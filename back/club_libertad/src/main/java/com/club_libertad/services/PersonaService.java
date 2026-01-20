@@ -1,6 +1,7 @@
 package com.club_libertad.services;
 
 import com.club_libertad.dtos.PersonaDTO;
+import com.club_libertad.exceptions.RegistroDuplicadoException;
 import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.DeporteRepository;
@@ -55,10 +56,21 @@ public class PersonaService {
 
     @Transactional
     public Optional<Long> savePersona(PersonaDTO personaTransfer){
+        Optional<Registro> registroExistente = registroRepository.findByDni(personaTransfer.getDni());
+        boolean usarRegistroExistente = Boolean.TRUE.equals(personaTransfer.getUsarRegistroExistente());
+        if (registroExistente.isPresent() && !usarRegistroExistente) {
+            throw new RegistroDuplicadoException(registroExistente.get());
+        }
         Persona personaCreate = new Persona();
-        personaCreate.setNombre(personaTransfer.getNombre());
-        personaCreate.setApellido(personaTransfer.getApellido());
-        personaCreate.setDni(personaTransfer.getDni());
+        if (registroExistente.isPresent() && usarRegistroExistente) {
+            personaCreate.setNombre(registroExistente.get().getNombre());
+            personaCreate.setApellido(registroExistente.get().getApellido());
+            personaCreate.setDni(registroExistente.get().getDni());
+        } else {
+            personaCreate.setNombre(personaTransfer.getNombre());
+            personaCreate.setApellido(personaTransfer.getApellido());
+            personaCreate.setDni(personaTransfer.getDni());
+        }
         personaCreate.setFechaNacimiento(personaTransfer.getFechaNacimiento());
         personaCreate.setEmail(personaTransfer.getEmail());
         personaCreate.setTelefono(personaTransfer.getTelefono());
@@ -73,6 +85,13 @@ public class PersonaService {
             Persona socioResponsable = new Persona();
             socioResponsable.setId(personaTransfer.getSocioResponsableId());
             personaCreate.setSocioResponsable(socioResponsable);
+        } else if (personaTransfer.getSocioResponsableDni() != null && !personaTransfer.getSocioResponsableDni().trim().isEmpty()) {
+            Optional<Persona> socioResponsable = personaRepository.findByDni(personaTransfer.getSocioResponsableDni().trim());
+            if (socioResponsable.isPresent()) {
+                personaCreate.setSocioResponsable(socioResponsable.get());
+            } else {
+                return Optional.empty();
+            }
         }
         Persona p = personaRepository.save(personaCreate);
         
@@ -93,7 +112,9 @@ public class PersonaService {
         registro.setApellido(personaCreate.getApellido());
         registro.setDni(personaCreate.getDni());
         registro.setFechaRegistro(fechaRegistro);
-        registroRepository.save(registro);
+        if (registroExistente.isEmpty()) {
+            registroRepository.save(registro);
+        }
 
         return Optional.of(p.getId());
     }

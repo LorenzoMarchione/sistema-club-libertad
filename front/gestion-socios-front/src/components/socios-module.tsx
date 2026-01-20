@@ -23,6 +23,7 @@ import { Checkbox } from './ui/checkbox';
 // Usamos directamente el tipo Persona del backend
 type Socio = Persona & {
   responsablePago?: string;
+  responsableDni?: string;
   estado: 'activo' | 'inactivo';
 };
 
@@ -34,6 +35,9 @@ interface FormSocio {
   direccion?: string | null;
   telefono?: string | null;
   correo?: string | null;
+  responsableNombre?: string;
+  responsableApellido?: string;
+  responsableDni?: string;
   categoria: 'SOCIO' | 'JUGADOR' | 'SOCIOYJUGADOR';
   estado: 'activo' | 'inactivo';
 }
@@ -71,20 +75,29 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [formData, setFormData] = useState<FormSocio>({
     categoria: 'SOCIO',
     estado: 'activo',
+    responsableNombre: '',
+    responsableApellido: '',
+    responsableDni: '',
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [socioToDelete, setSocioToDelete] = useState<Socio | null>(null);
   const [observacionBaja, setObservacionBaja] = useState('');
   const [expandedRegistroId, setExpandedRegistroId] = useState<string | null>(null);
+  const [registroDuplicado, setRegistroDuplicado] = useState<Registro | null>(null);
+  const [pendingSocioData, setPendingSocioData] = useState<any | null>(null);
+  const [isRegistroDialogOpen, setIsRegistroDialogOpen] = useState(false);
   
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
   const [historialFilter, setHistorialFilter] = useState<'todos' | 'activos' | 'inactivos'>('todos');
   const [activeTab, setActiveTab] = useState('socios');
-  const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean }>({
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean; responsableNombre: boolean; responsableApellido: boolean; responsableDni: boolean }>({
     nombre: false,
     apellido: false,
     dni: false,
     fechaNacimiento: false,
+    responsableNombre: false,
+    responsableApellido: false,
+    responsableDni: false,
   });
   const [fechaNacimientoParts, setFechaNacimientoParts] = useState<{ day: string; month: string; year: string }>({
     day: '',
@@ -148,6 +161,26 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     return `${day}/${month}/${year}`;
   };
 
+  const mapPersonasToSocios = (personas: Persona[]): Socio[] => {
+    const personasMap = new Map(personas.map((p: Persona) => [Number(p.id), p]));
+    return personas.map((persona: Persona) => {
+      const responsable = persona.socioResponsable || (persona.socioResponsableId ? personasMap.get(Number(persona.socioResponsableId)) : undefined);
+      return {
+        ...persona,
+        responsablePago: persona.socioResponsable
+          ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
+          : responsable ? `${responsable.nombre} ${responsable.apellido} (DNI: ${responsable.dni})` : undefined,
+        responsableDni: responsable?.dni,
+        estado: persona.estado,
+        //=========================================================================
+        // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
+        deportes: Array.isArray(persona.deportes) ? persona.deportes : [], // <-- default
+        // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
+        //=========================================================================
+      };
+    });
+  };
+
   // Carga limpia de socios desde el backend
   useEffect(() => {
     const cargarDatos = async () => {
@@ -167,14 +200,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         const personas = response.data;
 
         // Transformación mínima para ajustar al frontend
-        const sociosFormateados: Socio[] = personas.map((persona: Persona) => ({
-          ...persona,
-          responsablePago: persona.socioResponsable 
-            ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
-            : undefined,
-          estado: persona.estado, // Ya está en el formato correcto
-        }));
-
+        const sociosFormateados = mapPersonasToSocios(personas);
         setSocios(sociosFormateados);
         
         // Cargar registros históricos
@@ -234,6 +260,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     if (socio) {
       setEditingSocio(socio);
       setSelectedPromociones(socio.promocionesIds || []);
+      const responsable = socio.socioResponsable || (socio.socioResponsableId ? socios.find(s => Number(s.id) === Number(socio.socioResponsableId)) : undefined);
       setFormData({
         nombre: socio.nombre,
         apellido: socio.apellido,
@@ -242,6 +269,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         direccion: socio.direccion,
         telefono: socio.telefono,
         correo: socio.correo,
+        responsableNombre: responsable?.nombre || '',
+        responsableApellido: responsable?.apellido || '',
+        responsableDni: responsable?.dni || '',
         categoria: socio.categoria,
         estado: socio.estado,
       });
@@ -258,10 +288,13 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       setFormData({
         categoria: 'SOCIO',
         estado: 'activo',
+        responsableNombre: '',
+        responsableApellido: '',
+        responsableDni: '',
       });
       setFechaNacimientoParts({ day: '', month: '', year: '' });
     }
-    setFormErrors({ nombre: false, apellido: false, dni: false, fechaNacimiento: false });
+    setFormErrors({ nombre: false, apellido: false, dni: false, fechaNacimiento: false, responsableNombre: false, responsableApellido: false, responsableDni: false });
     setIsDialogOpen(true);
   };
 
@@ -272,6 +305,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       apellido: !(formData.apellido && formData.apellido.trim().length > 0),
       dni: !(formData.dni && formData.dni.trim().length > 0),
       fechaNacimiento: !(fechaNacimientoParts.day && fechaNacimientoParts.month && fechaNacimientoParts.year),
+      responsableNombre: formData.categoria === 'JUGADOR' ? !(formData.responsableNombre && formData.responsableNombre.trim().length > 0) : false,
+      responsableApellido: formData.categoria === 'JUGADOR' ? !(formData.responsableApellido && formData.responsableApellido.trim().length > 0) : false,
+      responsableDni: formData.categoria === 'JUGADOR' ? !(formData.responsableDni && formData.responsableDni.trim().length > 0) : false,
     };
 
     setFormErrors(errors);
@@ -280,18 +316,20 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       return;
     }
 
+    const socioData = {
+      nombre: formData.nombre || '',
+      apellido: formData.apellido || '',
+      dni: formData.dni || '',
+      fechaNacimiento: formData.fechaNacimiento || '',
+      email: formData.correo || null,
+      telefono: formData.telefono || null,
+      direccion: formData.direccion || null,
+      categoria: formData.categoria,
+      promocionesIds: selectedPromociones,
+      ...(formData.categoria === 'JUGADOR' && formData.responsableDni ? { socioResponsableDni: formData.responsableDni } : {}),
+    };
+
     try {
-      const socioData = {
-        nombre: formData.nombre || '',
-        apellido: formData.apellido || '',
-        dni: formData.dni || '',
-        fechaNacimiento: formData.fechaNacimiento || '',
-        email: formData.correo || null,
-        telefono: formData.telefono || null,
-        direccion: formData.direccion || null,
-        categoria: formData.categoria,
-        promocionesIds: selectedPromociones,
-      };
 
       if (editingSocio) {
         await personaService.update(parseInt(editingSocio.id), socioData);
@@ -304,25 +342,44 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       // Recargar la lista
       const response = await personaService.getAll();
       const personas = response.data;
-      const sociosActualizados: Socio[] = personas.map((persona: Persona) => ({
-        ...persona,
-        responsablePago: persona.socioResponsable 
-          ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
-          : undefined,
-        estado: persona.estado,
-          //=========================================================================
-          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
-          deportes: Array.isArray(persona.deportes) ? persona.deportes : [], // <-- default
-          // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
-          //=========================================================================
-      }));
+      const sociosActualizados = mapPersonasToSocios(personas);
       setSocios(sociosActualizados);
 
       setIsDialogOpen(false);
-      setFormData({ categoria: 'SOCIO', estado: 'activo' });
+      setFormData({ categoria: 'SOCIO', estado: 'activo', responsableNombre: '', responsableApellido: '', responsableDni: '' });
     } catch (error) {
       console.error('Error al guardar socio:', error);
-      toast.error(editingSocio ? 'Error al actualizar socio' : 'Error al registrar socio');
+      const status = (error as any)?.response?.status;
+      const data = (error as any)?.response?.data;
+      if (status === 409 && data?.registro) {
+        setRegistroDuplicado(data.registro as Registro);
+        setPendingSocioData(socioData);
+        setIsRegistroDialogOpen(true);
+        return;
+      }
+      const message = data;
+      toast.error(typeof message === 'string' && message.trim().length > 0
+        ? message
+        : (editingSocio ? 'Error al actualizar socio' : 'Error al registrar socio'));
+    }
+  };
+
+  const handleConfirmRegistro = async () => {
+    if (!pendingSocioData) return;
+    try {
+      await personaService.create({ ...pendingSocioData, usarRegistroExistente: true });
+      toast.success('Socio registrado correctamente');
+      const response = await personaService.getAll();
+      const personas = response.data;
+      setSocios(mapPersonasToSocios(personas));
+      setIsDialogOpen(false);
+      setFormData({ categoria: 'SOCIO', estado: 'activo', responsableNombre: '', responsableApellido: '', responsableDni: '' });
+      setIsRegistroDialogOpen(false);
+      setRegistroDuplicado(null);
+      setPendingSocioData(null);
+    } catch (err) {
+      console.error('Error al registrar socio con registro existente:', err);
+      toast.error('Error al registrar socio');
     }
   };
 
@@ -538,7 +595,19 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     <Label htmlFor="categoria">Categoría *</Label>
                     <Select
                       value={formData.categoria}
-                      onValueChange={(value) => setFormData({ ...formData, categoria: value as any })}
+                      onValueChange={(value) => {
+                        const nextCategoria = value as any;
+                        setFormData({
+                          ...formData,
+                          categoria: nextCategoria,
+                          ...(nextCategoria !== 'JUGADOR'
+                            ? { responsableNombre: '', responsableApellido: '', responsableDni: '' }
+                            : {}),
+                        });
+                        if (nextCategoria !== 'JUGADOR') {
+                          setFormErrors(prev => ({ ...prev, responsableNombre: false, responsableApellido: false, responsableDni: false }));
+                        }
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -550,6 +619,59 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {formData.categoria === 'JUGADOR' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="responsableApellido">Apellido del Responsable *</Label>
+                        <Input
+                          id="responsableApellido"
+                          value={formData.responsableApellido || ''}
+                          onChange={(e) => {
+                            setFormData({ ...formData, responsableApellido: e.target.value });
+                            if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, responsableApellido: false }));
+                          }}
+                          className={formErrors.responsableApellido ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                          required
+                        />
+                        {formErrors.responsableApellido && (
+                          <p className="text-xs text-red-600">Completa el apellido del responsable</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="responsableNombre">Nombre del Responsable *</Label>
+                        <Input
+                          id="responsableNombre"
+                          value={formData.responsableNombre || ''}
+                          onChange={(e) => {
+                            setFormData({ ...formData, responsableNombre: e.target.value });
+                            if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, responsableNombre: false }));
+                          }}
+                          className={formErrors.responsableNombre ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                          required
+                        />
+                        {formErrors.responsableNombre && (
+                          <p className="text-xs text-red-600">Completa el nombre del responsable</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="responsableDni">DNI del Responsable *</Label>
+                        <Input
+                          id="responsableDni"
+                          value={formData.responsableDni || ''}
+                          onChange={(e) => {
+                            setFormData({ ...formData, responsableDni: e.target.value });
+                            if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, responsableDni: false }));
+                          }}
+                          className={formErrors.responsableDni ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                          required
+                        />
+                        {formErrors.responsableDni && (
+                          <p className="text-xs text-red-600">Completa el DNI del responsable</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                   
                   <div className="space-y-2 md:col-span-2">
                     <Label>Promociones</Label>
@@ -626,6 +748,41 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     </Button>
                     <Button variant="destructive" onClick={handleConfirmDelete}>
                       Eliminar
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isRegistroDialogOpen} onOpenChange={setIsRegistroDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Persona ya registrada</DialogTitle>
+                  <DialogDescription>
+                    {registroDuplicado?.dni
+                      ? `Esta persona ya se encuentra en el registro (DNI: ${registroDuplicado.dni}).`
+                      : 'Esta persona ya se encuentra en el registro.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600">
+                    <div><span className="font-semibold">Apellido:</span> {registroDuplicado?.apellido || '-'}</div>
+                    <div><span className="font-semibold">Nombre:</span> {registroDuplicado?.nombre || '-'}</div>
+                    <div><span className="font-semibold">DNI:</span> {registroDuplicado?.dni || '-'}</div>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    ¿Desea crear la persona usando los datos del registro y completar con los datos ingresados?
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => {
+                      setIsRegistroDialogOpen(false);
+                      setRegistroDuplicado(null);
+                      setPendingSocioData(null);
+                    }}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleConfirmRegistro}>
+                      Aceptar
                     </Button>
                   </div>
                 </div>
@@ -714,11 +871,18 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                             <div>
                               <div>{socio.apellido}, {socio.nombre}</div>
                               {socio.responsablePago && (
-                                <div className="text-sm text-gray-500">Paga: {socio.responsablePago}</div>
+                                <div className="text-sm text-gray-400">Responsable: {socio.responsablePago}</div>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>{socio.dni}</TableCell>
+                          <TableCell>
+                            <div>
+                              <div>{socio.dni}</div>
+                              {socio.responsablePago && (
+                                <div className="text-sm text-gray-400">DNI responsable: {socio.responsableDni || '-'}</div>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge variant="outline">{getCategoriaLabel(socio.categoria)}</Badge>
                           </TableCell>
