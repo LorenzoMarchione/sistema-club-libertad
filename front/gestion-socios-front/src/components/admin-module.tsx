@@ -84,7 +84,7 @@ export function AdminModule() {
       const data = Array.isArray(res.data) ? res.data : [];
       const rows: BackupRow[] = data.map((b: BackupInfo) => ({
         fileName: b.fileName,
-        createdAt: b.createdAt,
+        createdAt: b.createdAt?.split(' ')[0] || b.createdAt,
         size: `${(b.sizeBytes / (1024 * 1024)).toFixed(1)} MB`,
         estado: 'completado',
       }));
@@ -150,6 +150,21 @@ export function AdminModule() {
     } finally {
       setRestoringFile(null);
     }
+  };
+
+  const getProximoBackup = () => {
+    const now = new Date();
+    let next = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+    if (now >= next) {
+      next = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
+    }
+    return next.toLocaleString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -299,7 +314,7 @@ export function AdminModule() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Fecha y Hora</TableHead>
+                  <TableHead>Fecha</TableHead>
                   <TableHead>Tamaño</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -358,9 +373,9 @@ export function AdminModule() {
             <Database className="h-4 w-4" />
             <AlertTitle>Backup Automático</AlertTitle>
             <AlertDescription>
-              El sistema crea automáticamente una copia de seguridad el primer día de cada mes a las 02:00 AM. 
-              Se mantienen los últimos 5-6 backups, eliminando los más antiguos automáticamente.
-              Próximo backup automático: <strong>1 de Diciembre de 2025, 02:00</strong>
+              El sistema crea automáticamente una copia de seguridad el primer día de cada mes a las 00:00.
+              Se mantienen los últimos 6 backups, eliminando los más antiguos automáticamente.
+              Próximo backup automático: <strong>{getProximoBackup()}</strong>
             </AlertDescription>
           </Alert>
         </CardContent>

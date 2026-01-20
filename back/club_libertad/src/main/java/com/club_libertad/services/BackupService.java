@@ -1,6 +1,7 @@
 package com.club_libertad.services;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -84,6 +85,26 @@ public class BackupService {
         }
     }
 
+    private void pruneOldBackups(int keepLast) {
+        try {
+            Path dir = Paths.get(BACKUP_DIR);
+            if (!Files.exists(dir)) {
+                return;
+            }
+            List<Path> files = Files.list(dir)
+                    .filter(Files::isRegularFile)
+                    .sorted(Comparator.comparingLong((Path p) -> p.toFile().lastModified()).reversed())
+                    .toList();
+            for (int i = keepLast; i < files.size(); i++) {
+                try {
+                    Files.deleteIfExists(files.get(i));
+                } catch (Exception ignored) {
+                }
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
     public boolean restoreBackup(String fileName) throws IOException, InterruptedException {
         DbParams params = parseUrl();
         Path dir = Paths.get(BACKUP_DIR);
@@ -142,11 +163,20 @@ public class BackupService {
         consumeStream(process.getErrorStream());
         int exit = process.waitFor();
         if (exit == 0 && Files.exists(out)) {
+            pruneOldBackups(6);
             return Optional.of(fileName);
         } else {
             // Clean up on failure
             try { Files.deleteIfExists(out); } catch (Exception ignored) {}
             return Optional.empty();
+        }
+    }
+
+    @Scheduled(cron = "0 0 0 1 * *")
+    public void createMonthlyBackup() {
+        try {
+            createBackup();
+        } catch (Exception ignored) {
         }
     }
 }
