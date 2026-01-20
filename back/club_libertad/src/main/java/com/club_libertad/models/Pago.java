@@ -20,17 +20,20 @@ public class Pago {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "socio_id", nullable = false)
     private Persona socioId;
     @Column(name = "fecha_pago",nullable = false)
     private LocalDate fechaPago;
-    @Column(name = "monto_original", nullable = false, precision = 10, scale = 2)
-    private BigDecimal montoOriginal;
-    @Column(name = "monto_descuento", nullable = false, precision = 10, scale = 2)
-    private BigDecimal montoDescuento;
-    @Column(name = "monto_total",nullable = false, precision = 10, scale = 2)
-    private BigDecimal montoTotal;
+    @Column(name = "monto_total",nullable = false, precision = 10, scale = 2, columnDefinition = "numeric(10,2) default 0")
+    private BigDecimal montoTotal = BigDecimal.ZERO;
+    @Column(name = "cuota_entrenador", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaEntrenador = BigDecimal.ZERO;
+    @Column(name = "cuota_seguro", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaSeguro = BigDecimal.ZERO;
+    @Column(name = "cuota_social", nullable = false, precision = 10, scale = 2)
+    private BigDecimal cuotaSocial = BigDecimal.ZERO;
     @Enumerated(EnumType.STRING)
     @Column(name = "metodo_pago")
     private MetodoPago metodoPago;
@@ -39,4 +42,14 @@ public class Pago {
     @JsonIgnore
     @OneToMany(mappedBy = "pagoId", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Cuota> cuotas;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("socioId")
+    public Long getSocioIdValue() {
+        return socioId != null ? socioId.getId() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("cuotasIds")
+    public List<Long> getCuotasIds() {
+        return cuotas != null ? cuotas.stream().map(Cuota::getId).toList() : null;
+    }
 }

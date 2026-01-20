@@ -22,10 +22,8 @@ public class DeporteController {
     @GetMapping("/deportes")
     @Operation(summary = "Obtiene todos los deportes")
     public ResponseEntity<List<Deporte>> getDeportes(){
-        ResponseEntity<List<Deporte>> response = ResponseEntity.noContent().build();
         List<Deporte> deportes = deporteService.getAllDeportes();
-        if(!deportes.isEmpty()) response = ResponseEntity.ok(deportes);
-        return response;
+        return ResponseEntity.ok(deportes);
     }
 
     @GetMapping("/deporte/{id}")

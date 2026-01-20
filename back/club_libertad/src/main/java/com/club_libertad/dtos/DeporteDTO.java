@@ -10,5 +10,7 @@ import java.math.BigDecimal;
 public class DeporteDTO {
     public String nombre;
     public String descripcion;
-    public BigDecimal cuotaMensual;
+    public BigDecimal cuotaEntrenador;
+    public BigDecimal cuotaSeguro;
+    public BigDecimal cuotaSocial;
 }

@@ -38,11 +38,14 @@ public class DeporteService {
         Deporte deporteCreate = new Deporte();
         deporteCreate.setNombre(deporteTransfer.getNombre());
         deporteCreate.setDescripcion(deporteTransfer.getDescripcion());
-        if(deporteTransfer.getCuotaMensual() == null) {
-            deporteCreate.setCuotaMensual(BigDecimal.ZERO);
-        } else {
-            deporteCreate.setCuotaMensual(deporteTransfer.getCuotaMensual());
-        }
+        BigDecimal cuotaEntrenador = deporteTransfer.getCuotaEntrenador() != null ? deporteTransfer.getCuotaEntrenador() : BigDecimal.ZERO;
+        BigDecimal cuotaSeguro = deporteTransfer.getCuotaSeguro() != null ? deporteTransfer.getCuotaSeguro() : BigDecimal.ZERO;
+        BigDecimal cuotaSocial = deporteTransfer.getCuotaSocial() != null ? deporteTransfer.getCuotaSocial() : BigDecimal.ZERO;
+
+        deporteCreate.setCuotaEntrenador(cuotaEntrenador);
+        deporteCreate.setCuotaSeguro(cuotaSeguro);
+        deporteCreate.setCuotaSocial(cuotaSocial);
+        deporteCreate.setCuotaMensual(cuotaEntrenador.add(cuotaSeguro).add(cuotaSocial));
         Deporte deporteCreated = deporteRepository.save(deporteCreate);
         return Optional.of(deporteCreated.getId());
     }
@@ -54,7 +57,14 @@ public class DeporteService {
         if(deporte.isPresent()){
             if(deporteUpdate.getNombre() != null) deporte.get().setNombre(deporteUpdate.getNombre());
             if(deporteUpdate.getDescripcion() != null) deporte.get().setDescripcion(deporteUpdate.getDescripcion());
-            if(deporteUpdate.getCuotaMensual() != null) deporte.get().setCuotaMensual(deporteUpdate.getCuotaMensual());
+            if(deporteUpdate.getCuotaEntrenador() != null) deporte.get().setCuotaEntrenador(deporteUpdate.getCuotaEntrenador());
+            if(deporteUpdate.getCuotaSeguro() != null) deporte.get().setCuotaSeguro(deporteUpdate.getCuotaSeguro());
+            if(deporteUpdate.getCuotaSocial() != null) deporte.get().setCuotaSocial(deporteUpdate.getCuotaSocial());
+
+            BigDecimal cuotaEntrenador = deporte.get().getCuotaEntrenador() != null ? deporte.get().getCuotaEntrenador() : BigDecimal.ZERO;
+            BigDecimal cuotaSeguro = deporte.get().getCuotaSeguro() != null ? deporte.get().getCuotaSeguro() : BigDecimal.ZERO;
+            BigDecimal cuotaSocial = deporte.get().getCuotaSocial() != null ? deporte.get().getCuotaSocial() : BigDecimal.ZERO;
+            deporte.get().setCuotaMensual(cuotaEntrenador.add(cuotaSeguro).add(cuotaSocial));
             b = true;
         }
         return b;

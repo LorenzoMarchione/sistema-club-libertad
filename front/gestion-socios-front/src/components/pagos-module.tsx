@@ -7,18 +7,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
+import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner@2.0.3';
 import cuotaService from '../services/cuotaService';
 import pagoService from '../services/pagoService';
 import personaService from '../services/personaService';
 import deporteService from '../services/deporteService';
-import promocionService from '../services/promocionService';
 import type { Cuota } from '../types/cuota';
 import type { Persona } from '../types/persona';
 import type { Deporte } from '../types/deporte';
-import type { Promocion } from '../types/promocion';
 import { Checkbox } from './ui/checkbox';
 
 interface Pago {
@@ -46,23 +44,37 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [loading, setLoading] = useState(true);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [deportes, setDeportes] = useState<Deporte[]>([]);
-  const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [pagosServidor, setPagosServidor] = useState<any[]>([]);
+  const [searchCuota, setSearchCuota] = useState<string>('');
+  const [filterDeportePago, setFilterDeportePago] = useState<string>('all');
+  const [filterMesPago, setFilterMesPago] = useState<string>('all');
+  const [expandedPagos, setExpandedPagos] = useState<Set<string>>(new Set());
+
+  // Helper para extraer mes-año de periodo sin problemas de timezone
+  const getMesAno = (periodo: string) => {
+    const [year, month] = periodo.split('-');
+    if (!year || !month) return periodo;
+    const mesNum = parseInt(month, 10);
+    const meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return `${meses[mesNum] || 'mes'} de ${year}`;
+  };
 
   const cargarCuotas = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Primero generar cuotas del mes actual si faltan
+      // Primero actualizar cuotas vencidas
+      await cuotaService.actualizarCuotasVencidas();
+
+      // Luego generar cuotas del mes actual si faltan
       await cuotaService.generarCuotasMesActual();
 
       // Luego cargar todas las cuotas, personas y deportes en paralelo
-      const [cuotasRes, personasRes, deportesRes, pagosRes, promocionesRes] = await Promise.all([
+      const [cuotasRes, personasRes, deportesRes, pagosRes] = await Promise.all([
         cuotaService.getAll(),
         personaService.getAll(),
         deporteService.getAll(),
         pagoService.getAll(),
-        promocionService.getAll(),
       ]);
       const cuotasData = Array.isArray(cuotasRes.data) ? cuotasRes.data : [];
       const personasData = Array.isArray(personasRes.data) ? personasRes.data : [];
@@ -71,7 +83,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       setPersonas(personasData);
       setDeportes(deportesData);
       setPagosServidor(Array.isArray(pagosRes.data) ? pagosRes.data : []);
-      setPromociones(Array.isArray(promocionesRes.data) ? promocionesRes.data : []);
 
       // Mapear por ID para acceso rápido
       const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
@@ -87,7 +98,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
           socioDNI: p?.dni || '',
           monto: cuota.monto,
           fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
-          mes: new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }),
+          mes: getMesAno(cuota.periodo),
           metodoPago: 'TRANSFERENCIA' as const,
           estado: cuota.estado === 'PAGADA' ? 'pagado' : cuota.estado === 'VENCIDA' ? 'vencido' : 'pendiente',
           conceptos: [
@@ -116,25 +127,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedSocio, setSelectedSocio] = useState('');
   const [selectedCuotas, setSelectedCuotas] = useState<number[]>([]);
-  const [selectedPromos, setSelectedPromos] = useState<number[]>([]);
   const [metodoPago, setMetodoPago] = useState<'EFECTIVO' | 'TRANSFERENCIA' | 'DEBITO_AUTOMATICO'>('EFECTIVO');
   const [observaciones, setObservaciones] = useState('');
-
-  const calcularDescuento = (montoOriginal: number) => {
-    if (!selectedPromos.length) return 0;
-    const promoMap = new Map<number, Promocion>(promociones.map(p => [Number(p.id), p] as const));
-    let descuentoTotal = 0;
-    selectedPromos.forEach(pid => {
-      const promo = promoMap.get(pid);
-      if (!promo || promo.activo === false) return;
-      if (promo.tipoDescuento === 'PORCENTAJE') {
-        descuentoTotal += (montoOriginal * (promo.descuento || 0)) / 100;
-      } else {
-        descuentoTotal += promo.descuento || 0;
-      }
-    });
-    return Math.min(descuentoTotal, montoOriginal);
-  };
 
   const handleRegistrarPago = async () => {
     if (!selectedSocio || selectedCuotas.length === 0) {
@@ -151,12 +145,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       return;
     }
 
-    const montoDescuento = calcularDescuento(montoOriginal);
-    const totalCalculado = montoOriginal - montoDescuento;
-    if (totalCalculado <= 0) {
-      toast.error('El total después del descuento debe ser mayor a 0');
-      return;
-    }
+    const montoDescuento = 0;
+    const totalCalculado = montoOriginal;
 
     const fechaPago = new Date();
     const yyyy = fechaPago.getFullYear();
@@ -189,7 +179,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const resetForm = () => {
     setSelectedSocio('');
     setSelectedCuotas([]);
-    setSelectedPromos([]);
     setMetodoPago('EFECTIVO');
     setObservaciones('');
   };
@@ -230,8 +219,10 @@ export function PagosModule({ userRole }: PagosModuleProps) {
     }
   };
 
+  const hoy = new Date().toISOString().split('T')[0];
   const estadisticas = {
     totalIngresos: pagos.filter(p => p.estado === 'pagado').reduce((sum, p) => sum + p.monto, 0),
+    ingresosDia: pagos.filter(p => p.estado === 'pagado' && p.fecha && p.fecha.startsWith(hoy)).reduce((sum, p) => sum + p.monto, 0),
     totalPendientes: pagos.filter(p => p.estado === 'pendiente').reduce((sum, p) => sum + p.monto, 0),
     totalVencidos: pagos.filter(p => p.estado === 'vencido').reduce((sum, p) => sum + p.monto, 0),
   };
@@ -256,9 +247,21 @@ export function PagosModule({ userRole }: PagosModuleProps) {
     return labels[metodo as keyof typeof labels] || metodo;
   };
 
+  const togglePagoExpanded = (pagoId: string) => {
+    setExpandedPagos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(pagoId)) {
+        newSet.delete(pagoId);
+      } else {
+        newSet.add(pagoId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
@@ -267,6 +270,17 @@ export function PagosModule({ userRole }: PagosModuleProps) {
             </CardDescription>
             <CardTitle className="text-green-600">
               ${estadisticas.totalIngresos.toLocaleString()}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-blue-600" />
+              Ingresos del Día
+            </CardDescription>
+            <CardTitle className="text-blue-600">
+              ${estadisticas.ingresosDia.toLocaleString()}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -370,68 +384,6 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Promociones</Label>
-                      <div className="border rounded-lg divide-y max-h-[240px] overflow-y-auto">
-                        {promociones.filter(p => p.activo !== false).map(promo => {
-                          const checked = selectedPromos.includes(Number(promo.id));
-                          return (
-                            <div key={promo.id} className="flex items-start gap-3 p-3">
-                              <Checkbox
-                                id={`promo-${promo.id}`}
-                                checked={checked}
-                                onCheckedChange={(val) => {
-                                  if (val) {
-                                    setSelectedPromos(prev => [...prev, Number(promo.id)]);
-                                  } else {
-                                    setSelectedPromos(prev => prev.filter(id => id !== Number(promo.id)));
-                                  }
-                                }}
-                              />
-                              <label htmlFor={`promo-${promo.id}`} className="flex-1 cursor-pointer">
-                                <div className="font-medium flex items-center gap-2">
-                                  {promo.nombre}
-                                  <Badge variant="outline" className="text-xs">
-                                    {promo.tipoDescuento === 'PORCENTAJE' ? `${promo.descuento}%` : `$${promo.descuento.toLocaleString()}`}
-                                  </Badge>
-                                </div>
-                                {promo.descripcion && (
-                                  <div className="text-sm text-gray-500">{promo.descripcion}</div>
-                                )}
-                              </label>
-                            </div>
-                          );
-                        })}
-                        {promociones.filter(p => p.activo !== false).length === 0 && (
-                          <div className="p-3 text-sm text-gray-500">No hay promociones activas</div>
-                        )}
-                      </div>
-                      <div className="flex justify-between text-sm text-gray-700">
-                        <span>Descuento aplicado:</span>
-                        <span className="font-semibold">
-                          ${calcularDescuento(
-                            cuotas
-                              .filter(c => selectedCuotas.includes(Number(c.id)))
-                              .reduce((sum, c) => sum + (c.monto || 0), 0)
-                          ).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm text-gray-700">
-                        <span>Total a pagar:</span>
-                        <span className="font-semibold">
-                          ${(
-                            (() => {
-                              const base = cuotas
-                                .filter(c => selectedCuotas.includes(Number(c.id)))
-                                .reduce((sum, c) => sum + (c.monto || 0), 0);
-                              const desc = calcularDescuento(base);
-                              return Math.max(base - desc, 0);
-                            })()
-                          ).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
                       <Label>Cuotas a pagar *</Label>
                       <div className="border rounded-lg divide-y max-h-[260px] overflow-y-auto">
                         {cuotas
@@ -458,7 +410,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                                     <Badge variant="outline" className="text-xs">{cuota.estado}</Badge>
                                   </div>
                                   <div className="text-sm text-gray-500">
-                                    Periodo: {new Date(cuota.periodo).toLocaleDateString('es-ES', { year: 'numeric', month: 'long' })}
+                                    Periodo: {getMesAno(cuota.periodo)}
                                   </div>
                                 </label>
                                 <div className="text-sm font-semibold">${(cuota.monto || 0).toLocaleString()}</div>
@@ -508,6 +460,15 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
             {['todos', 'pagados', 'pendientes', 'vencidos'].map((tab) => (
               <TabsContent key={tab} value={tab}>
+                <div className="mb-4">
+                  <Input
+                    type="text"
+                    placeholder="Buscar por socio, DNI, deporte o estado..."
+                    value={searchCuota}
+                    onChange={(e) => setSearchCuota(e.target.value)}
+                    className="max-w-md"
+                  />
+                </div>
                 <div className="border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -518,7 +479,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                         <TableHead>Conceptos</TableHead>
                         <TableHead>Monto</TableHead>
                         <TableHead>Método</TableHead>
-                        <TableHead>Fecha</TableHead>
+                        <TableHead>Fecha del Pago</TableHead>
                         <TableHead>Estado</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -531,6 +492,16 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                           if (tab === 'vencidos') return p.estado === 'vencido';
                           return true;
                         })
+                        .filter(p => {
+                          const search = searchCuota.toLowerCase().trim();
+                          if (!search) return true;
+                          return (
+                            p.socio.toLowerCase().includes(search) ||
+                            p.socioDNI.toLowerCase().includes(search) ||
+                            p.estado.toLowerCase().includes(search) ||
+                            p.conceptos.some(c => c.concepto.toLowerCase().includes(search))
+                          );
+                        })
                         .map((pago) => (
                           <TableRow key={pago.id}>
                             <TableCell>{pago.socio}</TableCell>
@@ -539,11 +510,8 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                             <TableCell>
                               <div className="text-sm space-y-1">
                                 {pago.conceptos.map((c, idx) => (
-                                  <div key={idx} className="flex justify-between gap-2">
-                                    <span className="text-gray-600">{c.concepto}:</span>
-                                    <span className={c.monto < 0 ? 'text-green-600' : ''}>
-                                      ${c.monto.toLocaleString()}
-                                    </span>
+                                  <div key={idx}>
+                                    <span className="text-gray-600">{c.concepto}</span>
                                   </div>
                                 ))}
                               </div>
@@ -574,10 +542,54 @@ export function PagosModule({ userRole }: PagosModuleProps) {
 
             {/* Lista alterna de Pagos */}
             <TabsContent value="pagos">
+              {/* Filtros por deporte y mes */}
+              <div className="mb-4 flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="filterDeportePago" className="whitespace-nowrap">Filtrar por deporte:</Label>
+                  <Select value={filterDeportePago} onValueChange={setFilterDeportePago}>
+                    <SelectTrigger id="filterDeportePago" className="w-64">
+                      <SelectValue placeholder="Todos los deportes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los deportes</SelectItem>
+                      {deportes.map(deporte => (
+                        <SelectItem key={deporte.id} value={deporte.id}>
+                          {deporte.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="filterMesPago" className="whitespace-nowrap">Filtrar por mes:</Label>
+                  <Select value={filterMesPago} onValueChange={setFilterMesPago}>
+                    <SelectTrigger id="filterMesPago" className="w-48">
+                      <SelectValue placeholder="Todos los meses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los meses</SelectItem>
+                      <SelectItem value="1">Enero</SelectItem>
+                      <SelectItem value="2">Febrero</SelectItem>
+                      <SelectItem value="3">Marzo</SelectItem>
+                      <SelectItem value="4">Abril</SelectItem>
+                      <SelectItem value="5">Mayo</SelectItem>
+                      <SelectItem value="6">Junio</SelectItem>
+                      <SelectItem value="7">Julio</SelectItem>
+                      <SelectItem value="8">Agosto</SelectItem>
+                      <SelectItem value="9">Septiembre</SelectItem>
+                      <SelectItem value="10">Octubre</SelectItem>
+                      <SelectItem value="11">Noviembre</SelectItem>
+                      <SelectItem value="12">Diciembre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10"></TableHead>
                       <TableHead>Nombre y Apellido</TableHead>
                       <TableHead>DNI</TableHead>
                       <TableHead>Cuotas Pagadas</TableHead>
@@ -588,23 +600,91 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                   </TableHeader>
                   <TableBody>
                     {Array.isArray(pagosServidor) && pagosServidor.length > 0 ? (
-                      pagosServidor.map((pago: any) => {
-                        const socio = pago.socioId; // viene embebido desde backend
+                      pagosServidor
+                        .filter((pago: any) => {
+                          // Si no hay filtro de deporte, mostrar todos
+                          const matchesDeporte = (() => {
+                            if (filterDeportePago === 'all') return true;
+                            const cuotasDePago = cuotas.filter(c => Number(c.pagoId) === Number(pago.id));
+                            return cuotasDePago.some(c => Number(c.deporteId) === Number(filterDeportePago));
+                          })();
+
+                          const matchesMes = (() => {
+                            if (filterMesPago === 'all') return true;
+                            if (!pago.fechaPago) return false;
+                            const mesPago = new Date(pago.fechaPago).getMonth() + 1; // 1-12
+                            return mesPago === Number(filterMesPago);
+                          })();
+
+                          return matchesDeporte && matchesMes;
+                        })
+                        .map((pago: any) => {
+                        const socio = personas.find(p => Number(p.id) === Number(pago.socioId));
                         const cuotasDePago = cuotas.filter(c => Number(c.pagoId) === Number(pago.id));
+                        const deportesNombres = cuotasDePago
+                          .map(c => {
+                            const deporte = deportes.find(d => Number(d.id) === Number(c.deporteId));
+                            return deporte?.nombre || 'Deporte desconocido';
+                          })
+                          .join(', ');
+                        const isExpanded = expandedPagos.has(String(pago.id));
+                        const hasConceptos = (pago.cuotaEntrenador || pago.cuotaSeguro || pago.cuotaSocial);
+                        
                         return (
-                          <TableRow key={pago.id}>
-                            <TableCell>{socio ? `${socio.nombre} ${socio.apellido}` : '—'}</TableCell>
-                            <TableCell>{socio?.dni || '—'}</TableCell>
-                            <TableCell>{cuotasDePago.length}</TableCell>
-                            <TableCell>${(pago.montoTotal || 0).toLocaleString()}</TableCell>
-                            <TableCell>{pago.fechaPago ? new Date(pago.fechaPago).toLocaleDateString('es-ES') : '—'}</TableCell>
-                            <TableCell>{pago.observaciones || '—'}</TableCell>
-                          </TableRow>
+                          <>
+                            <TableRow key={pago.id} className="cursor-pointer hover:bg-gray-50" onClick={() => togglePagoExpanded(String(pago.id))}>
+                              <TableCell>
+                                {hasConceptos ? (
+                                  isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+                                ) : null}
+                              </TableCell>
+                              <TableCell>{socio ? `${socio.nombre} ${socio.apellido}` : '—'}</TableCell>
+                              <TableCell>{socio?.dni || '—'}</TableCell>
+                              <TableCell>{deportesNombres || '—'}</TableCell>
+                              <TableCell>${(pago.montoTotal || 0).toLocaleString()}</TableCell>
+                              <TableCell>{pago.fechaPago ? new Date(pago.fechaPago).toLocaleDateString('es-ES') : '—'}</TableCell>
+                              <TableCell>{pago.observaciones || '—'}</TableCell>
+                            </TableRow>
+                            {isExpanded && hasConceptos && (
+                              <TableRow key={`${pago.id}-desglose`} className="bg-gray-50">
+                                <TableCell colSpan={7} className="py-3 px-6">
+                                  <div className="space-y-2">
+                                    <p className="text-sm font-semibold text-gray-700">Desglose de conceptos:</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                      {pago.cuotaEntrenador > 0 && (
+                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
+                                          <span className="text-gray-600">Entrenador:</span>
+                                          <span className="font-semibold">${(pago.cuotaEntrenador || 0).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {pago.cuotaSeguro > 0 && (
+                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
+                                          <span className="text-gray-600">Seguro:</span>
+                                          <span className="font-semibold">${(pago.cuotaSeguro || 0).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {pago.cuotaSocial > 0 && (
+                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
+                                          <span className="text-gray-600">Social:</span>
+                                          <span className="font-semibold">${(pago.cuotaSocial || 0).toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {pago.montoTotal !== (pago.cuotaEntrenador + pago.cuotaSeguro + pago.cuotaSocial) && (
+                                      <p className="text-xs text-gray-500 mt-2">
+                                        * El monto total puede diferir de la suma por promociones aplicadas
+                                      </p>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </>
                         );
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-gray-500">No hay pagos registrados</TableCell>
+                        <TableCell colSpan={7} className="text-center text-gray-500">No hay pagos registrados</TableCell>
                       </TableRow>
                     )}
                   </TableBody>

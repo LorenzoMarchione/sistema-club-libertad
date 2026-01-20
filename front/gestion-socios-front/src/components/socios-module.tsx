@@ -13,9 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
 import deporteService from '../services/deporteService';
 import registroService from '../services/registroService';
+import promocionService from '../services/promocionService';
 import type { Persona } from '../types/persona';
 import type { Deporte } from '../types/deporte';
 import type { Registro } from '../types/registro';
+import type { Promocion } from '../types/promocion';
+import { Checkbox } from './ui/checkbox';
 
 // Usamos directamente el tipo Persona del backend
 type Socio = Persona & {
@@ -55,6 +58,7 @@ const calcularEdad = (fechaNacimiento: string | null): number => {
 export function SociosModule({ userRole }: SociosModuleProps) {
   const [socios, setSocios] = useState<Socio[]>([]);
   const [deportes, setDeportes] = useState<Deporte[]>([]);
+  const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [historialRegistros, setHistorialRegistros] = useState<Registro[]>([]);
@@ -63,12 +67,18 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [filterDeporte, setFilterDeporte] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSocio, setEditingSocio] = useState<Socio | null>(null);
+  const [selectedPromociones, setSelectedPromociones] = useState<number[]>([]);
   const [formData, setFormData] = useState<FormSocio>({
     categoria: 'SOCIO',
     estado: 'activo',
   });
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [socioToDelete, setSocioToDelete] = useState<Socio | null>(null);
+  const [observacionBaja, setObservacionBaja] = useState('');
+  const [expandedRegistroId, setExpandedRegistroId] = useState<string | null>(null);
   
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
+  const [historialFilter, setHistorialFilter] = useState<'todos' | 'activos' | 'inactivos'>('todos');
   const [activeTab, setActiveTab] = useState('socios');
   const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean }>({
     nombre: false,
@@ -148,6 +158,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         const deportesResponse = await deporteService.getAll();
         setDeportes(Array.isArray(deportesResponse.data) ? deportesResponse.data : []);
         
+        // Cargar promociones
+        const promocionesResponse = await promocionService.getAll();
+        setPromociones(Array.isArray(promocionesResponse.data) ? promocionesResponse.data : []);
+        
         // Cargar personas/socios
         const response = await personaService.getAll();
         const personas = response.data;
@@ -197,18 +211,29 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     return matchesSearch && matchesCategoria && matchesDeporte;
   });
 
-  const filteredHistorial = historialRegistros.filter(registro => {
-    const nombreCompleto = `${registro.apellido} ${registro.nombre}`.toLowerCase();
-    return (
-      nombreCompleto.includes(historialSearchTerm.toLowerCase()) ||
-      registro.dni.includes(historialSearchTerm)
-    );
-  });
+  const filteredHistorial = historialRegistros
+    .filter(registro => {
+      const nombreCompleto = `${registro.apellido} ${registro.nombre}`.toLowerCase();
+      return (
+        nombreCompleto.includes(historialSearchTerm.toLowerCase()) ||
+        registro.dni.includes(historialSearchTerm)
+      );
+    })
+    .filter(registro => {
+      if (historialFilter === 'activos') {
+        return !registro.fechaBaja; // activos: sin fecha de baja
+      }
+      if (historialFilter === 'inactivos') {
+        return !!registro.fechaBaja; // dados de baja: con fecha de baja
+      }
+      return true; // 'todos'
+    });
 
   // Abrir diálogo para crear/editar
   const handleOpenDialog = (socio?: Socio) => {
     if (socio) {
       setEditingSocio(socio);
+      setSelectedPromociones(socio.promocionesIds || []);
       setFormData({
         nombre: socio.nombre,
         apellido: socio.apellido,
@@ -229,6 +254,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       });
     } else {
       setEditingSocio(null);
+      setSelectedPromociones([]);
       setFormData({
         categoria: 'SOCIO',
         estado: 'activo',
@@ -260,13 +286,11 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         apellido: formData.apellido || '',
         dni: formData.dni || '',
         fechaNacimiento: formData.fechaNacimiento || '',
-        direccion: formData.direccion || null,
+        email: formData.correo || null,
         telefono: formData.telefono || null,
-        correo: formData.correo || null,
+        direccion: formData.direccion || null,
         categoria: formData.categoria,
-        estado: formData.estado,
-        edad: formData.fechaNacimiento ? calcularEdad(formData.fechaNacimiento) : 0,
-        deportes: [], // Por ahora vacío
+        promocionesIds: selectedPromociones,
       };
 
       if (editingSocio) {
@@ -303,16 +327,28 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   };
 
   // Eliminar socio
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (userRole !== 'admin') {
       toast.error('No tienes permisos para eliminar socios');
       return;
     }
     
-    if (confirm('¿Estás seguro de que deseas eliminar este socio?')) {
+    const socioAEliminar = socios.find(s => s.id === id);
+    if (socioAEliminar) {
+      setSocioToDelete(socioAEliminar);
+      setObservacionBaja('');
+      setIsDeleteDialogOpen(true);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (socioToDelete) {
       try {
-        await personaService.delete(parseInt(id));
-        setSocios(socios.filter(s => s.id !== id));
+        await personaService.delete(parseInt(socioToDelete.id), observacionBaja || undefined);
+        setSocios(socios.filter(s => s.id !== socioToDelete.id));
+        setIsDeleteDialogOpen(false);
+        setSocioToDelete(null);
+        setObservacionBaja('');
         toast.success('Socio eliminado correctamente');
       } catch (error) {
         console.error('Error al eliminar socio:', error);
@@ -514,20 +550,43 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="estado">Estado *</Label>
-                    <Select
-                      value={formData.estado}
-                      onValueChange={(value) => setFormData({ ...formData, estado: value as any })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="activo">Activo</SelectItem>
-                        <SelectItem value="inactivo">Inactivo</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Promociones</Label>
+                    <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
+                      {promociones.filter(p => p.activo !== false).map(promo => {
+                        const checked = selectedPromociones.includes(Number(promo.id));
+                        return (
+                          <div key={promo.id} className="flex items-start gap-3 p-3">
+                            <Checkbox
+                              id={`promo-${promo.id}`}
+                              checked={checked}
+                              onCheckedChange={(val) => {
+                                if (val) {
+                                  setSelectedPromociones(prev => [...prev, Number(promo.id)]);
+                                } else {
+                                  setSelectedPromociones(prev => prev.filter(id => id !== Number(promo.id)));
+                                }
+                              }}
+                            />
+                            <label htmlFor={`promo-${promo.id}`} className="flex-1 cursor-pointer">
+                              <div className="font-medium">{promo.nombre}</div>
+                              {promo.descripcion && (
+                                <div className="text-sm text-gray-500">{promo.descripcion}</div>
+                              )}
+                            </label>
+                          </div>
+                        );
+                      })}
+                      {promociones.filter(p => p.activo !== false).length === 0 && (
+                        <div className="p-3 text-sm text-gray-500">No hay promociones activas</div>
+                      )}
+                    </div>
+                    {selectedPromociones.length > 0 && (
+                      <p className="text-sm text-gray-600">
+                        {selectedPromociones.length} promoción(es) seleccionada(s)
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
@@ -537,6 +596,38 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                   <Button onClick={handleSave}>
                     {editingSocio ? 'Guardar Cambios' : 'Registrar Socio'}
                   </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Dialog de Confirmación de Eliminación */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Eliminar Socio</DialogTitle>
+                  <DialogDescription>
+                    ¿Estás seguro de que deseas eliminar a {socioToDelete?.apellido}, {socioToDelete?.nombre}?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="observacionBaja">Observación de Baja (opcional)</Label>
+                    <Input
+                      id="observacionBaja"
+                      placeholder="Ej: Traslado a otra ciudad, cambio de trabajo..."
+                      value={observacionBaja}
+                      onChange={(e) => setObservacionBaja(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button variant="destructive" onClick={handleConfirmDelete}>
+                      Eliminar
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
@@ -606,14 +697,13 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       <TableHead>Contacto</TableHead>
                       <TableHead>Deportes</TableHead>
                       <TableHead>Fecha de Registro</TableHead>
-                      <TableHead>Estado</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredSocios.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-gray-500 py-8">
+                        <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                           No se encontraron socios
                         </TableCell>
                       </TableRow>
@@ -655,11 +745,6 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           <TableCell>
                             <div className="text-sm">{formatDate(socio.fechaRegistro)}</div>
                           </TableCell>
-                          <TableCell>
-                            <Badge variant={socio.estado === 'activo' ? 'default' : 'secondary'}>
-                              {socio.estado}
-                            </Badge>
-                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button
@@ -700,15 +785,30 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                 </p>
               </div>
 
-              {/* Búsqueda en historial */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Buscar en historial por nombre o DNI..."
-                  value={historialSearchTerm}
-                  onChange={(e) => setHistorialSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+              {/* Búsqueda y filtro en historial */}
+              <div className="flex flex-col md:flex-row gap-3 md:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Buscar en historial por nombre o DNI..."
+                    value={historialSearchTerm}
+                    onChange={(e) => setHistorialSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="w-full md:w-64">
+                  <Label className="mb-1 block">Filtro</Label>
+                  <Select value={historialFilter} onValueChange={(v) => setHistorialFilter(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar filtro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos</SelectItem>
+                      <SelectItem value="activos">Activos</SelectItem>
+                      <SelectItem value="inactivos">Inactivos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Tabla de Historial */}
@@ -716,28 +816,56 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12"></TableHead>
                       <TableHead>Número</TableHead>
                       <TableHead>Nombre Completo</TableHead>
                       <TableHead>DNI</TableHead>
                       <TableHead>Fecha de Registro</TableHead>
+                      <TableHead>Fecha de Baja</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredHistorial.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                        <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                           No se encontraron registros
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredHistorial.map((registro, index) => (
-                        <TableRow key={registro.id}>
+                        <TableRow key={`registro-${registro.id}`}>
+                          <TableCell className="text-center">
+                            {registro.fechaBaja && (
+                              <button
+                                onClick={() => setExpandedRegistroId(expandedRegistroId === registro.id ? null : registro.id)}
+                                className="text-blue-600 hover:text-blue-800 cursor-pointer text-lg leading-none"
+                              >
+                                {expandedRegistroId === registro.id ? '▼' : '▶'}
+                              </button>
+                            )}
+                          </TableCell>
                           <TableCell>{index + 1}</TableCell>
                           <TableCell>{registro.apellido}, {registro.nombre}</TableCell>
                           <TableCell>{registro.dni}</TableCell>
                           <TableCell>{formatDate(registro.fechaRegistro)}</TableCell>
+                          <TableCell>
+                            {registro.fechaBaja ? formatDate(registro.fechaBaja) : '-'}
+                          </TableCell>
                         </TableRow>
                       ))
+                    )}
+                    {/* Filas expandidas con observación de baja */}
+                    {filteredHistorial.map((registro) => 
+                      expandedRegistroId === registro.id && registro.fechaBaja && registro.observacionBaja ? (
+                        <TableRow key={`expanded-${registro.id}`} className="bg-gray-50">
+                          <TableCell colSpan={6} className="py-4">
+                            <div className="pl-8 border-l-2 border-blue-400">
+                              <p className="text-sm font-semibold text-gray-700 mb-2">Razón de Baja:</p>
+                              <p className="text-sm text-gray-600 italic">{registro.observacionBaja}</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : null
                     )}
                   </TableBody>
                 </Table>

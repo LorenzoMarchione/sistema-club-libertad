@@ -13,4 +13,6 @@ import java.util.Optional;
 public interface CuotaRepository extends JpaRepository<Cuota, Long> {
     @Query("SELECT c FROM Cuota c WHERE c.personaId.id = :personaId AND c.deporteId.id = :deporteId AND c.periodo = :periodo")
     Optional<Cuota> findByPersonaDeporteAndPeriodo(@Param("personaId") Long personaId, @Param("deporteId") Long deporteId, @Param("periodo") LocalDate periodo);
+    
+    void deleteByPersonaId_Id(Long personaId);
 }
