@@ -22,5 +22,7 @@ public class PersonaDTO {
     @Enumerated(EnumType.STRING)
     public CategoriaPersona categoria;
     public Long socioResponsableId;
+    public String socioResponsableDni;
+    public Boolean usarRegistroExistente;
     public List<Long> promocionesIds;
 }

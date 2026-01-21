@@ -24,7 +24,7 @@ const personaService = {
     return api.get<Persona>(PERSONA_ENDPOINTS.GET_BY_ID(id));
   },
 
-  create(persona: Omit<Persona, 'id' | 'fechaRegistro'>) {
+  create(persona: Omit<Persona, 'id' | 'fechaRegistro'> & { usarRegistroExistente?: boolean }) {
     // Transformar 'estado' de string a booleano antes de enviar
     const payload = {
       ...persona,

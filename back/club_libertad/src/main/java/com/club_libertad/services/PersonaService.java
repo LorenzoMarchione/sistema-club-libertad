@@ -1,6 +1,7 @@
 package com.club_libertad.services;
 
 import com.club_libertad.dtos.PersonaDTO;
+import com.club_libertad.exceptions.RegistroDuplicadoException;
 import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.DeporteRepository;
@@ -8,6 +9,7 @@ import com.club_libertad.repositories.PersonaRepository;
 import com.club_libertad.repositories.RegistroRepository;
 import com.club_libertad.repositories.InscripcionRepository;
 import com.club_libertad.repositories.CuotaRepository;
+import com.club_libertad.repositories.PagoRepository;
 import com.club_libertad.repositories.PromocionRepository;
 import com.club_libertad.models.Registro;
 import com.club_libertad.models.Inscripcion;
@@ -29,14 +31,16 @@ public class PersonaService {
     private final RegistroRepository registroRepository;
     private final InscripcionRepository inscripcionRepository;
     private final CuotaRepository cuotaRepository;
+    private final PagoRepository pagoRepository;
     private final PromocionRepository promocionRepository;
 
-    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository, InscripcionRepository inscripcionRepository, CuotaRepository cuotaRepository, PromocionRepository promocionRepository) {
+    public PersonaService(PersonaRepository personaRepository, DeporteRepository deporteRepository, RegistroRepository registroRepository, InscripcionRepository inscripcionRepository, CuotaRepository cuotaRepository, PagoRepository pagoRepository, PromocionRepository promocionRepository) {
         this.personaRepository = personaRepository;
         this.deporteRepository = deporteRepository;
         this.registroRepository = registroRepository;
         this.inscripcionRepository = inscripcionRepository;
         this.cuotaRepository = cuotaRepository;
+        this.pagoRepository = pagoRepository;
         this.promocionRepository = promocionRepository;
     }
 
@@ -52,10 +56,21 @@ public class PersonaService {
 
     @Transactional
     public Optional<Long> savePersona(PersonaDTO personaTransfer){
+        Optional<Registro> registroExistente = registroRepository.findByDni(personaTransfer.getDni());
+        boolean usarRegistroExistente = Boolean.TRUE.equals(personaTransfer.getUsarRegistroExistente());
+        if (registroExistente.isPresent() && !usarRegistroExistente) {
+            throw new RegistroDuplicadoException(registroExistente.get());
+        }
         Persona personaCreate = new Persona();
-        personaCreate.setNombre(personaTransfer.getNombre());
-        personaCreate.setApellido(personaTransfer.getApellido());
-        personaCreate.setDni(personaTransfer.getDni());
+        if (registroExistente.isPresent() && usarRegistroExistente) {
+            personaCreate.setNombre(registroExistente.get().getNombre());
+            personaCreate.setApellido(registroExistente.get().getApellido());
+            personaCreate.setDni(registroExistente.get().getDni());
+        } else {
+            personaCreate.setNombre(personaTransfer.getNombre());
+            personaCreate.setApellido(personaTransfer.getApellido());
+            personaCreate.setDni(personaTransfer.getDni());
+        }
         personaCreate.setFechaNacimiento(personaTransfer.getFechaNacimiento());
         personaCreate.setEmail(personaTransfer.getEmail());
         personaCreate.setTelefono(personaTransfer.getTelefono());
@@ -70,6 +85,13 @@ public class PersonaService {
             Persona socioResponsable = new Persona();
             socioResponsable.setId(personaTransfer.getSocioResponsableId());
             personaCreate.setSocioResponsable(socioResponsable);
+        } else if (personaTransfer.getSocioResponsableDni() != null && !personaTransfer.getSocioResponsableDni().trim().isEmpty()) {
+            Optional<Persona> socioResponsable = personaRepository.findByDni(personaTransfer.getSocioResponsableDni().trim());
+            if (socioResponsable.isPresent()) {
+                personaCreate.setSocioResponsable(socioResponsable.get());
+            } else {
+                return Optional.empty();
+            }
         }
         Persona p = personaRepository.save(personaCreate);
         
@@ -90,7 +112,9 @@ public class PersonaService {
         registro.setApellido(personaCreate.getApellido());
         registro.setDni(personaCreate.getDni());
         registro.setFechaRegistro(fechaRegistro);
-        registroRepository.save(registro);
+        if (registroExistente.isEmpty()) {
+            registroRepository.save(registro);
+        }
 
         return Optional.of(p.getId());
     }
@@ -175,8 +199,12 @@ public class PersonaService {
                 
                 // 2. Eliminar todas las inscripciones de esta persona
                 inscripcionRepository.deleteByPersonaId_Id(id);
+
+                // 2.1 Eliminar todos los pagos asociados a esta persona
+                pagoRepository.deleteBySocioId_Id(id);
                 
-                // 3. Desasociar deportes (relación many-to-many)
+                // 3. Desasociar promociones y deportes (relaciones many-to-many)
+                persona.get().getPromociones().clear();
                 persona.get().getDeportes().clear();
                 personaRepository.save(persona.get());
                 

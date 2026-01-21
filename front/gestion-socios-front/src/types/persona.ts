@@ -12,6 +12,8 @@ export interface Persona {
   edad: number;
   fechaNacimiento: string; // ISO
   socioResponsable?: Persona; // "Nombre Apellido (DNI: XXXXXXXX)"
+  socioResponsableId?: number;
+  socioResponsableDni?: string;
   deportes: string[]; // reservado para futuro
   deportesIds?: number[]; // IDs de los deportes asociados
   estado: 'activo' | 'inactivo';
