@@ -10,6 +10,7 @@ import com.club_libertad.services.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
@@ -43,6 +44,7 @@ public class AuthController {
 
     @GetMapping("/me/{username}")
     @Operation(summary = "Obtiene información básica del usuario")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> me(@PathVariable String username) {
         return usuarioRepository.findByUsername(username)
                 .map(u -> ResponseEntity.ok(new LoginResponse("", expirationMillis, u.getUsername(), u.getRole())))

@@ -6,6 +6,7 @@ import com.club_libertad.models.Persona;
 import com.club_libertad.services.DeporteService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class DeporteController {
 
     @GetMapping("/deportes")
     @Operation(summary = "Obtiene todos los deportes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<List<Deporte>> getDeportes(){
         List<Deporte> deportes = deporteService.getAllDeportes();
         return ResponseEntity.ok(deportes);
@@ -28,6 +30,7 @@ public class DeporteController {
 
     @GetMapping("/deporte/{id}")
     @Operation(summary = "Obtiene un deporte por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<Deporte> getDeporteById(@PathVariable Long id){
         ResponseEntity<Deporte> response = ResponseEntity.notFound().build();
         Optional<Deporte> deporte = deporteService.getDeporteById(id);
@@ -37,6 +40,7 @@ public class DeporteController {
 
     @PostMapping("/deporte")
     @Operation(summary = "Crea un deporte")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> createDeporte(@RequestBody DeporteDTO deporteTransfer){
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
@@ -55,6 +59,7 @@ public class DeporteController {
 
     @PatchMapping("/deporte/{id}")
     @Operation(summary = "Actualiza uno o varios campos de un deporte por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> updateDeporte(@PathVariable Long id, @RequestBody Deporte deporte){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = deporteService.updateDeporte(id, deporte);
@@ -64,6 +69,7 @@ public class DeporteController {
 
     @DeleteMapping("/deporte/{id}")
     @Operation(summary = "Elimina un deporte por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> deleteDeporte(@PathVariable Long id){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         try{
@@ -80,6 +86,7 @@ public class DeporteController {
 
     @GetMapping("/deporte/{deporteId}/personas")
     @Operation(summary = "Obtiene todas las personas inscritas en un deporte")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<Set<Persona>> getPersonasByDeporte(@PathVariable Long deporteId) {
         Set<Persona> personas = deporteService.getPersonasByDeporteId(deporteId);
         if(personas != null) return ResponseEntity.ok(personas);

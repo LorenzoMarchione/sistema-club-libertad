@@ -7,6 +7,7 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.Path;
@@ -23,6 +24,7 @@ public class BackupController {
 
     @GetMapping("/backups")
     @Operation(summary = "Lista las copias de seguridad disponibles")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<BackupInfo>> listBackups() {
         List<BackupInfo> list = backupService.listBackups();
         if (list.isEmpty()) return ResponseEntity.noContent().build();
@@ -31,6 +33,7 @@ public class BackupController {
 
     @PostMapping("/backup")
     @Operation(summary = "Crea una nueva copia de seguridad usando pg_dump")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> createBackup() {
         try {
             Optional<String> created = backupService.createBackup();
@@ -45,6 +48,7 @@ public class BackupController {
 
     @GetMapping("/backup/{file}")
     @Operation(summary = "Descarga un backup por nombre de archivo")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<FileSystemResource> downloadBackup(@PathVariable String file) {
         Path path = Paths.get("backups").resolve(file);
         FileSystemResource resource = new FileSystemResource(path.toFile());
@@ -57,6 +61,7 @@ public class BackupController {
 
     @PostMapping("/backup/{file}/restore")
     @Operation(summary = "Restaura la base de datos usando un backup existente")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> restoreBackup(@PathVariable String file) {
         try {
             boolean restored = backupService.restoreBackup(file);

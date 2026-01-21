@@ -5,6 +5,7 @@ import com.club_libertad.models.Promocion;
 import com.club_libertad.services.PromocionService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,6 +21,7 @@ public class PromocionController {
 
     @GetMapping("/promociones")
     @Operation(summary = "Obtiene todas las promociones")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<List<Promocion>> getPromociones() {
         ResponseEntity<List<Promocion>> response = ResponseEntity.noContent().build();
         List<Promocion> promociones = promocionService.getAllPromociones();
@@ -29,6 +31,7 @@ public class PromocionController {
 
     @GetMapping("/promocion/{id}")
     @Operation(summary = "Obtiene una promoción por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<Promocion> getPromocionById(@PathVariable Long id) {
         ResponseEntity<Promocion> response = ResponseEntity.notFound().build();
         Optional<Promocion> promocion = promocionService.getPromocionById(id);
@@ -38,6 +41,7 @@ public class PromocionController {
 
     @PostMapping("/promocion")
     @Operation(summary = "Crea una promoción")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> createPromocion(@RequestBody PromocionDTO promocionTransfer) {
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
@@ -53,6 +57,7 @@ public class PromocionController {
 
     @PatchMapping("/promocion/{id}")
     @Operation(summary = "Actualiza uno o varios campos de una promoción por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> updatePromocion(@PathVariable Long id, @RequestBody Promocion promocion) {
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = promocionService.updatePromocion(id, promocion);
@@ -62,6 +67,7 @@ public class PromocionController {
 
     @DeleteMapping("/promocion/{id}")
     @Operation(summary = "Elimina una promoción por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> deletePromocion(@PathVariable Long id) {
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = promocionService.deletePromocionById(id);

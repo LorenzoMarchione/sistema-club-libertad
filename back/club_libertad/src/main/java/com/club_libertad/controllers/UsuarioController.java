@@ -6,6 +6,7 @@ import com.club_libertad.models.Usuario;
 import com.club_libertad.services.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,6 +21,7 @@ public class UsuarioController {
 
     @GetMapping("/usuarios")
     @Operation(summary = "Obtiene todos los usuarios")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<List<Usuario>> getUsuarios(){
         ResponseEntity<List<Usuario>> response = ResponseEntity.noContent().build();
         List<Usuario> usuarios = usuarioService.getAllUsuarios();
@@ -31,6 +33,7 @@ public class UsuarioController {
 
     @PostMapping("/usuario")
     @Operation(summary = "Crea un usuario", description = "Roles - 0 = ADMIN - 1 = SECRETARIO")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> createUsuario(@RequestBody UsuarioDTO usuarioTransfer){
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
@@ -48,6 +51,7 @@ public class UsuarioController {
 
     @PostMapping("/usuario/validate")
     @Operation(summary = "Valida un usuario")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> validateUsuario(@RequestBody LoginDTO login){
         ResponseEntity<String> response = ResponseEntity.ok("Usuario o contraseña incorrectos");
         Optional<Usuario> u = usuarioService.validateUsuario(login);
@@ -59,6 +63,7 @@ public class UsuarioController {
 
     @PatchMapping("/usuario/estado/{id}")
     @Operation(summary = "Da de baja/alta a un usuario por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> cambiarEstadoUsuario(@PathVariable Long id){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = usuarioService.estadoUsuario(id);
@@ -68,6 +73,7 @@ public class UsuarioController {
 
     @PatchMapping("/usuario/{id}")
     @Operation(summary = "Actualiza uno o varios campos de un usuario por id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> updateUsuario(@PathVariable Long id, @RequestBody UsuarioDTO usuarioUpdate){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = usuarioService.updateUsuarioParcial(id, usuarioUpdate);
@@ -79,6 +85,7 @@ public class UsuarioController {
 
     @DeleteMapping("/usuario/{id}")
     @Operation(summary = "Elimina un usuario por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> deleteUsuario(@PathVariable Long id){
         boolean b = usuarioService.deleteUsuarioById(id);
         if(b) return ResponseEntity.ok("Usuario con id " + id + " eliminado con exito");

@@ -31,6 +31,7 @@ public class PersonaController {
 
     @GetMapping("/persona/{id}")
     @Operation(summary = "Obtiene una persona por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<Persona> getPersonaById(@PathVariable Long id) {
         Optional<Persona> persona = personaService.getPersonaById(id);
         ResponseEntity<Persona> response = ResponseEntity.notFound().build();
@@ -40,6 +41,7 @@ public class PersonaController {
 
     @PostMapping("/persona")
     @Operation(summary = "Crea una persona (Socio o Jugador)", description = "Roles - 0 = SOCIO - 1 = JUGADOR - 2 = SOCIOYJUGADOR")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> createPersona(@RequestBody PersonaDTO personaTransfer) {
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
@@ -58,6 +60,7 @@ public class PersonaController {
 
     @PatchMapping("/persona/activo/{id}")
     @Operation(summary = "Da de baja/alta a una persona por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> cambiarEstadoPersona(@PathVariable Long id) {
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = personaService.cambiarEstadoPersona(id);
@@ -67,6 +70,7 @@ public class PersonaController {
 
     @PatchMapping("/persona/{id}")
     @Operation(summary = "Actualiza uno o varios campos de una persona por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> updatePersona(@PathVariable Long id, @RequestBody Persona persona) {
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = personaService.updatePersonaParcial(id, persona);
@@ -76,6 +80,7 @@ public class PersonaController {
 
     @PostMapping("/persona/{personaId}/deporte/{deporteId}")
     @Operation(summary = "Asocia un deporte a una persona")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> asociarDeporte(@PathVariable Long personaId, @PathVariable Long deporteId) {
         boolean b = personaService.asociarDeporte(personaId, deporteId);
         if(b) return ResponseEntity.ok("Deporte asociado correctamente");
@@ -84,6 +89,7 @@ public class PersonaController {
 
     @DeleteMapping("/persona/{personaId}/deporte/{deporteId}")
     @Operation(summary = "Desasocia un deporte de una persona")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> desasociarDeporte(@PathVariable Long personaId, @PathVariable Long deporteId) {
         boolean b = personaService.desasociarDeporte(personaId, deporteId);
         if(b) return ResponseEntity.ok("Deporte desasociado correctamente");
@@ -92,6 +98,7 @@ public class PersonaController {
 
     @GetMapping("/persona/{personaId}/deportes")
     @Operation(summary = "Obtiene todos los deportes de una persona")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<Set<Deporte>> getDeportesByPersona(@PathVariable Long personaId) {
         Set<Deporte> deportes = personaService.getDeportesByPersonaId(personaId);
         if(deportes != null) return ResponseEntity.ok(deportes);
@@ -100,6 +107,7 @@ public class PersonaController {
 
     @DeleteMapping("/persona/{id}")
     @Operation(summary = "Elimina una persona por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> deletePersona(@PathVariable Long id, @RequestParam(required = false) String observacionBaja) {
         boolean b = personaService.deletePersonaById(id, observacionBaja);
         if(b) return ResponseEntity.ok("Persona con id " + id + " eliminada con exito");

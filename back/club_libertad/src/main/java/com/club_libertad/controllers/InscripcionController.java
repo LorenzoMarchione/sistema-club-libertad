@@ -5,12 +5,13 @@ import com.club_libertad.models.Inscripcion;
 import com.club_libertad.services.InscripcionService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
 
-@RestController("/inscripcionController")
+@RestController(value = "/inscripcionController")
 public class InscripcionController {
     private final InscripcionService inscripcionService;
     public InscripcionController(InscripcionService inscripcionService) {
@@ -19,6 +20,7 @@ public class InscripcionController {
 
     @GetMapping("/inscripciones")
     @Operation(summary = "Obtiene todas las inscripciones")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<List<Inscripcion>> getInscripciones(){
         ResponseEntity<List<Inscripcion>> response = ResponseEntity.noContent().build();
         List<Inscripcion> inscripciones = inscripcionService.getAllInscripciones();
@@ -28,6 +30,7 @@ public class InscripcionController {
 
     @GetMapping("/inscripcion/{id}")
     @Operation(summary = "Obtiene una inscripcion por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<Inscripcion> getInscripcionById(@PathVariable Long id){
         ResponseEntity<Inscripcion> response = ResponseEntity.notFound().build();
         Optional<Inscripcion> inscripcion = inscripcionService.getInscripcionById(id);
@@ -37,6 +40,7 @@ public class InscripcionController {
 
     @PostMapping("/inscripcion")
     @Operation(summary = "Crea una inscripcion")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> createInscripcion(@RequestBody InscripcionDTO inscripcionTransfer){
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
@@ -55,6 +59,7 @@ public class InscripcionController {
 
     @PatchMapping("/inscripcion/{id}")
     @Operation(summary = "Da de baja una inscripcion por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> bajaInscripcion(@PathVariable Long id){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = inscripcionService.darBajaInscripcion(id);

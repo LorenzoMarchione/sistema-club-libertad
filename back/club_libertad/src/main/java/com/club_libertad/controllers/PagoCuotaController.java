@@ -5,6 +5,7 @@ import com.club_libertad.models.PagoCuota;
 import com.club_libertad.services.PagoCuotaService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ public class PagoCuotaController {
 
     @GetMapping("/pagoCuotas")
     @Operation(summary = "Obtiene todas las pago_cuotas")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<List<PagoCuota>> getAllPagoCuotas(){
         ResponseEntity<List<PagoCuota>> response = ResponseEntity.noContent().build();
         List<PagoCuota> pagoCuotas = pagoCuotaService.getAllPagoCuotas();
@@ -28,6 +30,7 @@ public class PagoCuotaController {
 
     @GetMapping("/pagoCuota/{id}")
     @Operation(summary = "Obtiene un pago_cuota por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<PagoCuota> getPagoCuotaById(@PathVariable Long id){
         ResponseEntity<PagoCuota> response = ResponseEntity.notFound().build();
         Optional<PagoCuota> pagoCuota = pagoCuotaService.getPagoCuotaById(id);
@@ -37,6 +40,7 @@ public class PagoCuotaController {
 
     @PostMapping("/pagoCuota")
     @Operation(summary = "Crea un pago_cuota")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> createPagoCuota(@RequestBody PagoCuotaDTO pagoCuotaTransfer){
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
@@ -54,6 +58,7 @@ public class PagoCuotaController {
 
     @DeleteMapping("/pagoCuota/{id}")
     @Operation(summary = "Elimina un pago_cuota por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> deletePagoCuota(@PathVariable Long id){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         try{

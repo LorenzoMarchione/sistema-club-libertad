@@ -5,6 +5,7 @@ import com.club_libertad.models.Pago;
 import com.club_libertad.services.PagoService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ public class PagoController {
 
     @GetMapping("/pagos")
     @Operation(summary = "Obtiene todos los pagos")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<List<Pago>> getPagos(){
         ResponseEntity<List<Pago>> response = ResponseEntity.noContent().build();
         List<Pago> pagos = pagoService.getAllPagos();
@@ -28,6 +30,7 @@ public class PagoController {
 
     @GetMapping("/pago/{id}")
     @Operation(summary = "Obtiene un pago por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<Pago> getPagoById(@PathVariable Long id){
         ResponseEntity<Pago> response = ResponseEntity.notFound().build();
         Optional<Pago> pago = pagoService.getPagoById(id);
@@ -37,6 +40,7 @@ public class PagoController {
 
     @PostMapping("/pago")
     @Operation(summary = "Crea un pago y asocia cuotas", description = "Crea un pago y asocia las cuotas especificadas por sus IDs. Las cuotas asociadas se marcan como PAGADAS. METODOS DE PAGO - 0 = EFECTIVO - 1 = TRANSFERENCIA - 2 = DEBITO_AUTOMATICO")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> createPago(@RequestBody PagoDTO pagoTransfer){
         ResponseEntity<String> response = ResponseEntity
                 .status(400)

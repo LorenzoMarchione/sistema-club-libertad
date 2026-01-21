@@ -6,6 +6,7 @@ import com.club_libertad.models.Cuota;
 import com.club_libertad.services.CuotaService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class CuotaController {
 
     @GetMapping("/cuotas")
     @Operation(summary = "Obtiene todas las cuotas")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<List<Cuota>> getAllCuotas(){
         ResponseEntity<List<Cuota>> response = ResponseEntity.noContent().build();
         List<Cuota> cuotas = cuotaService.getAllCuotas();
@@ -30,6 +32,7 @@ public class CuotaController {
 
     @GetMapping("/cuota/{id}")
     @Operation(summary = "Obtiene una cuota por su id")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<Cuota> getCuotaById(@PathVariable Long id){
         ResponseEntity<Cuota> response = ResponseEntity.notFound().build();
         Optional<Cuota> cuota = cuotaService.getCuotaById(id);
@@ -39,6 +42,7 @@ public class CuotaController {
 
     @PostMapping("/cuota")
     @Operation(summary = "Crea una cuota")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> createCuota(@RequestBody CuotaDTO cuotaTransfer){
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
@@ -56,6 +60,7 @@ public class CuotaController {
 
     @PatchMapping("/cuota/{id}")
     @Operation(summary = "Actualiza el estado de una cuota por su id", description = "ESTADOS - 0 = GENERADA - 1 = VENCIDA - 2 = PAGADA")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> cambiarEstadoCuota(@PathVariable Long id, @RequestBody EstadoCuota estado){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = cuotaService.changeStateCuota(id, estado);
@@ -65,6 +70,7 @@ public class CuotaController {
 
     @PostMapping("/cuotas/generar-mes-actual")
     @Operation(summary = "Genera automáticamente las cuotas del mes actual para todas las inscripciones activas")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> generarCuotasMesActual(){
         try{
             int cuotasGeneradas = cuotaService.generarCuotasMesActual();
@@ -77,6 +83,7 @@ public class CuotaController {
 
     @PostMapping("/cuotas/actualizar-vencidas")
     @Operation(summary = "Actualiza todas las cuotas generadas cuya fecha de vencimiento es menor o igual a hoy a estado VENCIDA")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<String> actualizarCuotasVencidas(){
         try{
             int cuotasVencidas = cuotaService.actualizarCuotasVencidas();
