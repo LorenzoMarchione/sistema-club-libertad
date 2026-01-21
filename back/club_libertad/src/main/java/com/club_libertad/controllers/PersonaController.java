@@ -6,6 +6,7 @@ import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +23,7 @@ public class PersonaController {
 
     @GetMapping("/personas")
     @Operation(summary = "Obtiene todas las personas")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECRETARIO')")
     public ResponseEntity<List<Persona>> getPersonas() {
         List<Persona> personas = personaService.getAllPersonas();
         return ResponseEntity.ok(personas);
