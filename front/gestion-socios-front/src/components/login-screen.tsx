@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Users } from 'lucide-react';
+import authService from '../services/authService';
 
 interface LoginScreenProps {
   onLogin: (user: { id: string; name: string; role: 'admin' | 'secretario' }) => void;
@@ -20,12 +21,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const MAX_ATTEMPTS = 5;
   const BLOCK_MINUTES = 5;
 
-  // Mock users - en producción esto vendría de una base de datos
-  const users = [
-    { id: '1', username: 'admin', password: 'admin123', name: 'Juan Pérez', role: 'admin' as const },
-    { id: '2', username: 'secretario', password: 'sec123', name: 'María García', role: 'secretario' as const },
-  ];
-
   // Sin backend de IP, se persiste en localStorage para bloquear al cliente actual
   useEffect(() => {
     const storedAttempts = Number(localStorage.getItem('loginAttempts') || '0');
@@ -38,7 +33,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const remainingMs = blockedUntil ? Math.max(blockedUntil - Date.now(), 0) : 0;
   const remainingMinutes = Math.ceil(remainingMs / 60000);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -47,19 +42,22 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       return;
     }
 
-    const user = users.find(u => u.username === username && u.password === password);
-    
-    if (user) {
-      onLogin({
-        id: user.id,
-        name: user.name,
-        role: user.role,
-      });
+    try {
+      const res = await authService.login(username, password);
+      const data = res.data;
+      localStorage.setItem('authToken', data.token);
+      const user = {
+        id: String(data.id),
+        name: data.username,
+        role: data.role === 'ADMIN' ? 'admin' : 'secretario',
+      };
+      localStorage.setItem('authUser', JSON.stringify(user));
+      onLogin(user);
       setAttempts(0);
       setBlockedUntil(null);
       localStorage.removeItem('loginAttempts');
       localStorage.removeItem('loginBlockedUntil');
-    } else {
+    } catch (err: any) {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
       localStorage.setItem('loginAttempts', String(newAttempts));
@@ -71,7 +69,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         setError(`Demasiados intentos. La página se bloquea por ${BLOCK_MINUTES} minuto(s).`);
       } else {
         const restantes = MAX_ATTEMPTS - newAttempts;
-        setError(`Usuario o contraseña incorrectos. Intentos restantes: ${restantes}`);
+        const message = err?.response?.data;
+        setError(typeof message === 'string' && message.trim().length > 0
+          ? message
+          : `Usuario o contraseña incorrectos. Intentos restantes: ${restantes}`);
       }
     }
   };
@@ -123,10 +124,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               Iniciar Sesión
             </Button>
 
-            <div className="mt-4 p-3 bg-gray-50 rounded text-sm space-y-1">
-              <p className="text-gray-600">Usuarios de prueba:</p>
-              <p className="text-gray-700">• Admin: admin / admin123</p>
-              <p className="text-gray-700">• Secretario: secretario / sec123</p>
+            <div className="mt-4 p-3 bg-gray-50 rounded text-sm">
+              <p className="text-gray-600">Acceso seguro con JWT.</p>
             </div>
           </form>
         </CardContent>

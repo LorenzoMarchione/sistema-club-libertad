@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Users, Activity, DollarSign, Settings, Bell, LogOut, Tag } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -23,8 +23,25 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
     setCurrentUser(null);
   };
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userRaw = localStorage.getItem('authUser');
+    if (token && userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        if (user?.id && user?.name && user?.role) {
+          setCurrentUser(user);
+        }
+      } catch {
+        localStorage.removeItem('authUser');
+      }
+    }
+  }, []);
 
   if (!currentUser) {
     return <LoginScreen onLogin={handleLogin} />;

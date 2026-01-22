@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 public class UsuarioDTO {
     public String username;
     public String password;
+    public String email;
     @Enumerated(EnumType.STRING)
     public RoleUsuario role;
 }

@@ -24,6 +24,20 @@ interface Usuario {
   ultimoAcceso: string;
 }
 
+interface FormUsuario {
+  nombre: string;
+  email: string;
+  rol: 'admin' | 'secretario';
+}
+
+interface UsuarioCreado {
+  id: number;
+  username: string;
+  email: string;
+  role: 'ADMIN' | 'SECRETARIO';
+  passwordTemporal: string;
+}
+
 interface BackupRow {
   fileName: string;
   createdAt: string;
@@ -37,16 +51,51 @@ export function AdminModule() {
   const [backups, setBackups] = useState<BackupRow[]>([]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState<Partial<Usuario>>({
+  const [formData, setFormData] = useState<FormUsuario>({
+    nombre: '',
+    email: '',
     rol: 'secretario',
-    estado: 'activo',
   });
   const [backupProgress, setBackupProgress] = useState(0);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [restoringFile, setRestoringFile] = useState<string | null>(null);
+  const [createdUser, setCreatedUser] = useState<UsuarioCreado | null>(null);
+  const [isCreatedDialogOpen, setIsCreatedDialogOpen] = useState(false);
+  const [userFormErrors, setUserFormErrors] = useState<{ nombre?: string; email?: string }>({});
+  const [isDeleteUserDialogOpen, setIsDeleteUserDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<Usuario | null>(null);
 
-  const handleCrearUsuario = () => {
-    toast.error('Alta de usuarios pendiente de implementación de endpoint seguro');
+  const handleCrearUsuario = async () => {
+    if (!formData.nombre.trim() || !formData.email.trim()) {
+      toast.error('Completa usuario y email');
+      return;
+    }
+    setUserFormErrors({});
+    try {
+      const res = await usuarioService.create({
+        username: formData.nombre.trim(),
+        email: formData.email.trim(),
+        role: formData.rol === 'admin' ? 'ADMIN' : 'SECRETARIO',
+      });
+      setCreatedUser(res.data as UsuarioCreado);
+      setIsCreatedDialogOpen(true);
+      toast.success('Usuario creado correctamente');
+      setIsDialogOpen(false);
+      setFormData({ nombre: '', email: '', rol: 'secretario' });
+      await cargarUsuarios();
+    } catch (error) {
+      console.error('Error al crear usuario:', error);
+      const message = (error as any)?.response?.data;
+      if (typeof message === 'string') {
+        const lower = message.toLowerCase();
+        setUserFormErrors({
+          nombre: lower.includes('usuario') ? 'Ya hay un usuario registrado con este nombre' : undefined,
+          email: lower.includes('correo') || lower.includes('email') ? 'Ya hay un usuario registrado con este correo' : undefined,
+        });
+        return;
+      }
+      toast.error('No se pudo crear el usuario');
+    }
   };
 
   const handleCambiarEstado = async (id: number) => {
@@ -57,6 +106,25 @@ export function AdminModule() {
     } catch (error) {
       console.error('Error al actualizar estado:', error);
       toast.error('No se pudo actualizar el estado');
+    }
+  };
+
+  const handleDeleteUsuario = (usuario: Usuario) => {
+    setUserToDelete(usuario);
+    setIsDeleteUserDialogOpen(true);
+  };
+
+  const handleConfirmDeleteUsuario = async () => {
+    if (!userToDelete) return;
+    try {
+      await usuarioService.delete(userToDelete.id);
+      toast.success('Usuario eliminado correctamente');
+      setIsDeleteUserDialogOpen(false);
+      setUserToDelete(null);
+      await cargarUsuarios();
+    } catch (error) {
+      console.error('Error al eliminar usuario:', error);
+      toast.error('No se pudo eliminar el usuario');
     }
   };
 
@@ -204,9 +272,34 @@ export function AdminModule() {
                     <Label htmlFor="nombre">Username *</Label>
                     <Input
                       id="nombre"
-                      value={formData.nombre || ''}
-                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                      value={formData.nombre}
+                      onChange={(e) => {
+                        setFormData({ ...formData, nombre: e.target.value });
+                        if (userFormErrors.nombre) {
+                          setUserFormErrors(prev => ({ ...prev, nombre: undefined }));
+                        }
+                      }}
                     />
+                    {userFormErrors.nombre && (
+                      <p className="text-xs text-red-600">{userFormErrors.nombre}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        if (userFormErrors.email) {
+                          setUserFormErrors(prev => ({ ...prev, email: undefined }));
+                        }
+                      }}
+                    />
+                    {userFormErrors.email && (
+                      <p className="text-xs text-red-600">{userFormErrors.email}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="rol">Rol *</Label>
@@ -234,6 +327,50 @@ export function AdminModule() {
                   </Button>
                   <Button onClick={handleCrearUsuario}>
                     Crear Usuario
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDeleteUserDialogOpen} onOpenChange={setIsDeleteUserDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Eliminar Usuario</DialogTitle>
+                  <DialogDescription>
+                    ¿Estás seguro de que deseas eliminar a {userToDelete?.nombre}?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsDeleteUserDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button variant="destructive" onClick={handleConfirmDeleteUsuario}>
+                    Eliminar
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isCreatedDialogOpen} onOpenChange={setIsCreatedDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Usuario creado correctamente</DialogTitle>
+                  <DialogDescription>
+                    Guarda estos datos. La contraseña es temporal.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 text-sm">
+                  <div><span className="font-semibold">Usuario:</span> {createdUser?.username || '-'}</div>
+                  <div><span className="font-semibold">Email:</span> {createdUser?.email || '-'}</div>
+                  <div><span className="font-semibold">Rol:</span> {createdUser?.role || '-'}</div>
+                  <div className="p-3 bg-gray-50 rounded border">
+                    <span className="font-semibold">Contraseña temporal:</span>
+                    <div className="mt-1 font-mono text-base">{createdUser?.passwordTemporal || '-'}</div>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsCreatedDialogOpen(false)}>
+                    Cerrar
                   </Button>
                 </div>
               </DialogContent>
@@ -273,6 +410,14 @@ export function AdminModule() {
                         onClick={() => handleCambiarEstado(usuario.id)}
                       >
                         {usuario.estado === 'activo' ? 'Desactivar' : 'Activar'}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="ml-2"
+                        onClick={() => handleDeleteUsuario(usuario)}
+                      >
+                        Eliminar
                       </Button>
                     </TableCell>
                   </TableRow>
