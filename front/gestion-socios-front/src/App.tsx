@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Users, Activity, DollarSign, Settings, Bell, LogOut, Tag } from 'lucide-react';
+import { Users, Activity, DollarSign, Settings, Bell, Tag, User } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet';
 import { SociosModule } from './components/socios-module';
 import { DeportesModule } from './components/deportes-module';
 import { PagosModule } from './components/pagos-module';
@@ -10,6 +11,7 @@ import { AdminModule } from './components/admin-module';
 import { NotificacionesModule } from './components/notificaciones-module';
 import { PromocionesModule } from './components/promociones-module';
 import { LoginScreen } from './components/login-screen';
+import { PerfilModule } from './components/perfil-module';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<{
@@ -17,6 +19,7 @@ export default function App() {
     name: string;
     role: 'admin' | 'secretario';
   } | null>(null);
+  const [activeTab, setActiveTab] = useState('socios');
 
   const handleLogin = (user: { id: string; name: string; role: 'admin' | 'secretario' }) => {
     setCurrentUser(user);
@@ -59,9 +62,8 @@ export default function App() {
                 {currentUser.name} • {currentUser.role === 'admin' ? 'Administrador' : 'Secretario'}
               </p>
             </div>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Cerrar Sesión
+            <Button variant="outline" onClick={() => setActiveTab('perfil')}>
+              Mi Perfil
             </Button>
           </div>
         </div>
@@ -69,7 +71,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="socios" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="socios" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -117,6 +119,10 @@ export default function App() {
 
           <TabsContent value="notificaciones">
             <NotificacionesModule userRole={currentUser.role} />
+          </TabsContent>
+
+          <TabsContent value="perfil">
+            <PerfilModule user={currentUser} onLogout={handleLogout} />
           </TabsContent>
 
           {currentUser.role === 'admin' && (

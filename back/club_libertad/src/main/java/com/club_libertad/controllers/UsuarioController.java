@@ -2,6 +2,7 @@ package com.club_libertad.controllers;
 
 import com.club_libertad.dtos.LoginDTO;
 import com.club_libertad.dtos.UsuarioDTO;
+import com.club_libertad.dtos.ChangePasswordDTO;
 import com.club_libertad.models.Usuario;
 import com.club_libertad.services.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -83,6 +84,18 @@ public class UsuarioController {
             response = ResponseEntity.ok("Usuario actualizado con exito");
         }
         return response;
+    }
+
+    @PostMapping("/usuario/{id}/password")
+    @Operation(summary = "Actualiza la contraseña de un usuario")
+    public ResponseEntity<String> changePassword(@PathVariable Long id, @RequestBody ChangePasswordDTO body){
+        try {
+            boolean ok = usuarioService.changePassword(id, body.getCurrentPassword(), body.getNewPassword());
+            if (ok) return ResponseEntity.ok("Contraseña actualizada con exito");
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(e.getMessage());
+        }
     }
 
     @DeleteMapping("/usuario/{id}")

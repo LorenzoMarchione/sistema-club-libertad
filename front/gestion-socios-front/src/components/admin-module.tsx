@@ -19,6 +19,7 @@ import api from '../services/api';
 interface Usuario {
   id: number;
   nombre: string;
+  email?: string | null;
   rol: 'admin' | 'secretario';
   estado: 'activo' | 'inactivo';
   ultimoAcceso: string;
@@ -135,6 +136,7 @@ export function AdminModule() {
       const mapped: Usuario[] = (data as UsuarioApi[]).map(u => ({
         id: u.id,
         nombre: u.username,
+        email: u.email ?? null,
         rol: u.role.toLowerCase() as 'admin' | 'secretario',
         estado: u.activo ? 'activo' : 'inactivo',
         ultimoAcceso: u.ultimoAcceso ? new Date(u.ultimoAcceso).toLocaleString() : '-',
@@ -383,6 +385,7 @@ export function AdminModule() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -392,6 +395,7 @@ export function AdminModule() {
                 {usuarios.map((usuario) => (
                   <TableRow key={usuario.id}>
                     <TableCell>{usuario.nombre}</TableCell>
+                    <TableCell>{usuario.email || '-'}</TableCell>
                     <TableCell>
                       <Badge variant={usuario.rol === 'admin' ? 'default' : 'secondary'}>
                         <Shield className="w-3 h-3 mr-1" />

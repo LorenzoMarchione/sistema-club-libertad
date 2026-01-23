@@ -110,6 +110,23 @@ public class UsuarioService {
     }
 
     @Transactional
+    public boolean changePassword(Long id, String currentPassword, String newPassword) {
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        if (usuarioOpt.isEmpty()) {
+            return false;
+        }
+        Usuario usuario = usuarioOpt.get();
+        if (currentPassword == null || newPassword == null) {
+            throw new IllegalArgumentException("Datos de contraseña incompletos");
+        }
+        if (!passwordEncoder.matches(currentPassword, usuario.getPassword())) {
+            throw new IllegalArgumentException("La contraseña actual no es correcta");
+        }
+        usuario.setPassword(passwordEncoder.encode(newPassword));
+        return true;
+    }
+
+    @Transactional
     public boolean deleteUsuarioById(Long id){
         if(usuarioRepository.existsById(id)){
             usuarioRepository.deleteById(id);

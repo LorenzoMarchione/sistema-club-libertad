@@ -12,6 +12,9 @@ const usuarioService = {
   delete(id: number) {
     return api.delete<string>(`/usuario/${id}`);
   },
+  changePassword(id: number, currentPassword: string, newPassword: string) {
+    return api.post<string>(`/usuario/${id}/password`, { currentPassword, newPassword });
+  },
   toggleEstado(id: number) {
     return api.patch(`/usuario/estado/${id}`);
   },
