@@ -183,6 +183,7 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
 
       toast.success(`Persona asociada e inscripta a ${selectedDeportes.length} deporte(s) correctamente`);
       setIsAssociateDialogOpen(false);
+      await loadDeportes();
       await loadPersonas();
     } catch (error) {
       toast.error('Error al asociar e inscribir deportes');
@@ -212,7 +213,12 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
               <CardDescription>Ingresos Mensuales Potenciales</CardDescription>
               <CardTitle>
                 ${Array.isArray(deportes)
-                  ? deportes.reduce((sum, d) => sum + d.cuotaMensual, 0).toLocaleString()
+                  ? deportes
+                      .reduce((sum, d) => {
+                        const socios = d.numeroSocios ?? d.personasIds?.length ?? 0;
+                        return sum + d.cuotaMensual * socios;
+                      }, 0)
+                      .toLocaleString()
                   : (0).toLocaleString()}
               </CardTitle>
             </CardHeader>
@@ -297,7 +303,10 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                     
                     <div className="space-y-3">
                       <Label>Deportes *</Label>
-                      <div className="border rounded-lg divide-y max-h-[300px] overflow-y-auto">
+                      <div
+                        className="border rounded-lg divide-y overflow-y-auto"
+                        style={{ maxHeight: deportes.length > 4 ? 220 : undefined }}
+                      >
                         {deportes.map((deporte) => (
                           <div
                             key={deporte.id}

@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { Users, Activity, DollarSign, Settings, Bell, LogOut, Tag } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Users, Activity, DollarSign, Settings, Bell, Tag, User } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet';
 import { SociosModule } from './components/socios-module';
 import { DeportesModule } from './components/deportes-module';
 import { PagosModule } from './components/pagos-module';
@@ -10,6 +12,8 @@ import { AdminModule } from './components/admin-module';
 import { NotificacionesModule } from './components/notificaciones-module';
 import { PromocionesModule } from './components/promociones-module';
 import { LoginScreen } from './components/login-screen';
+import { PerfilModule } from './components/perfil-module';
+import authService from './services/authService';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<{
@@ -17,14 +21,97 @@ export default function App() {
     name: string;
     role: 'admin' | 'secretario';
   } | null>(null);
+  const [activeTab, setActiveTab] = useState('socios');
+  const [isSessionDialogOpen, setIsSessionDialogOpen] = useState(false);
+  const sessionTimerRef = useRef<number | null>(null);
+  const sessionExpireRef = useRef<number | null>(null);
 
   const handleLogin = (user: { id: string; name: string; role: 'admin' | 'secretario' }) => {
     setCurrentUser(user);
+    const expiresAtRaw = localStorage.getItem('authExpiresAt');
+    if (expiresAtRaw) {
+      const expiresAt = Number(expiresAtRaw);
+      if (!Number.isNaN(expiresAt)) {
+        scheduleSessionPrompt(expiresAt);
+      }
+    }
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
+    localStorage.removeItem('authExpiresAt');
     setCurrentUser(null);
   };
+
+  const clearSessionTimer = () => {
+    if (sessionTimerRef.current !== null) {
+      window.clearTimeout(sessionTimerRef.current);
+      sessionTimerRef.current = null;
+    }
+    if (sessionExpireRef.current !== null) {
+      window.clearTimeout(sessionExpireRef.current);
+      sessionExpireRef.current = null;
+    }
+  };
+
+  const scheduleSessionPrompt = (expiresAt: number) => {
+    clearSessionTimer();
+    const now = Date.now();
+    const warnAt = Math.max(expiresAt - 60_000, now);
+    const delay = Math.max(warnAt - now, 0);
+    sessionTimerRef.current = window.setTimeout(() => {
+      setIsSessionDialogOpen(true);
+    }, delay);
+    const expireDelay = Math.max(expiresAt - now, 0);
+    sessionExpireRef.current = window.setTimeout(() => {
+      setIsSessionDialogOpen(false);
+      handleLogout();
+    }, expireDelay);
+  };
+
+  const handleExtendSession = async () => {
+    try {
+      const res = await authService.refresh();
+      const data = res.data;
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('authExpiresAt', String(Date.now() + data.expiresInMillis));
+      setIsSessionDialogOpen(false);
+      scheduleSessionPrompt(Date.now() + data.expiresInMillis);
+    } catch {
+      handleLogout();
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userRaw = localStorage.getItem('authUser');
+    const expiresAtRaw = localStorage.getItem('authExpiresAt');
+    if (token && userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        const expiresAt = expiresAtRaw ? Number(expiresAtRaw) : 0;
+        if (expiresAt && Date.now() > expiresAt) {
+          handleLogout();
+          return;
+        }
+        if (user?.id && user?.name && user?.role) {
+          setCurrentUser(user);
+          if (expiresAt) {
+            scheduleSessionPrompt(expiresAt);
+          }
+        }
+      } catch {
+        localStorage.removeItem('authUser');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearSessionTimer();
+    };
+  }, []);
 
   if (!currentUser) {
     return <LoginScreen onLogin={handleLogin} />;
@@ -32,6 +119,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Dialog open={isSessionDialogOpen} onOpenChange={setIsSessionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sesión por expirar</DialogTitle>
+            <DialogDescription>
+              Tu sesión está por finalizar. ¿Quieres extender la sesión actual?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleLogout}>Cancelar</Button>
+            <Button onClick={handleExtendSession}>Aceptar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,9 +143,8 @@ export default function App() {
                 {currentUser.name} • {currentUser.role === 'admin' ? 'Administrador' : 'Secretario'}
               </p>
             </div>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Cerrar Sesión
+            <Button variant="outline" onClick={() => setActiveTab('perfil')}>
+              Mi Perfil
             </Button>
           </div>
         </div>
@@ -52,7 +152,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="socios" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="socios" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -100,6 +200,10 @@ export default function App() {
 
           <TabsContent value="notificaciones">
             <NotificacionesModule userRole={currentUser.role} />
+          </TabsContent>
+
+          <TabsContent value="perfil">
+            <PerfilModule user={currentUser} onLogout={handleLogout} />
           </TabsContent>
 
           {currentUser.role === 'admin' && (

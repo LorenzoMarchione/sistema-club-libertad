@@ -10,11 +10,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.security.SecureRandom;
 
 @Service
 public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private static final String PASSWORD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    private static final int PASSWORD_LENGTH = 10;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    public record UsuarioCreado(Long id, String username, String email, String role, String passwordTemporal) {}
 
     public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
@@ -27,14 +33,34 @@ public class UsuarioService {
     }
 
     @Transactional
-    public Optional<Long> saveUsuario(UsuarioDTO usuarioTransfer){
+    public Optional<UsuarioCreado> saveUsuario(UsuarioDTO usuarioTransfer){
         Usuario usuarioCreate = new Usuario();
         usuarioCreate.setUsername(usuarioTransfer.getUsername());
-        usuarioCreate.setPassword(passwordEncoder.encode(usuarioTransfer.getPassword()));
+        String rawPassword = usuarioTransfer.getPassword();
+        if (rawPassword == null || rawPassword.isBlank()) {
+            rawPassword = generarPasswordAleatoria();
+        }
+        usuarioCreate.setPassword(passwordEncoder.encode(rawPassword));
+        usuarioCreate.setEmail(usuarioTransfer.getEmail());
         usuarioCreate.setRole(usuarioTransfer.getRole());
         usuarioCreate.setActivo(true);
         Usuario usuarioCreated = usuarioRepository.save(usuarioCreate);
-        return Optional.of(usuarioCreated.getId());
+        return Optional.of(new UsuarioCreado(
+                usuarioCreated.getId(),
+                usuarioCreated.getUsername(),
+                usuarioCreated.getEmail(),
+                usuarioCreated.getRole().name(),
+                rawPassword
+        ));
+    }
+
+    private String generarPasswordAleatoria() {
+        StringBuilder sb = new StringBuilder(PASSWORD_LENGTH);
+        for (int i = 0; i < PASSWORD_LENGTH; i++) {
+            int index = SECURE_RANDOM.nextInt(PASSWORD_CHARS.length());
+            sb.append(PASSWORD_CHARS.charAt(index));
+        }
+        return sb.toString();
     }
 
     @Transactional(readOnly = true)
@@ -76,10 +102,28 @@ public class UsuarioService {
         if(usuario.isPresent()){
             if(usuarioUpdate.getUsername() != null) usuario.get().setUsername(usuarioUpdate.getUsername());
             if(usuarioUpdate.getPassword() != null) usuario.get().setPassword(passwordEncoder.encode(usuarioUpdate.getPassword()));
+            if(usuarioUpdate.getEmail() != null) usuario.get().setEmail(usuarioUpdate.getEmail());
             if(usuarioUpdate.getRole() != null) usuario.get().setRole(usuarioUpdate.getRole());
             b = true;
         }
         return b;
+    }
+
+    @Transactional
+    public boolean changePassword(Long id, String currentPassword, String newPassword) {
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        if (usuarioOpt.isEmpty()) {
+            return false;
+        }
+        Usuario usuario = usuarioOpt.get();
+        if (currentPassword == null || newPassword == null) {
+            throw new IllegalArgumentException("Datos de contraseña incompletos");
+        }
+        if (!passwordEncoder.matches(currentPassword, usuario.getPassword())) {
+            throw new IllegalArgumentException("La contraseña actual no es correcta");
+        }
+        usuario.setPassword(passwordEncoder.encode(newPassword));
+        return true;
     }
 
     @Transactional

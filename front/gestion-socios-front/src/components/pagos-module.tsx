@@ -628,7 +628,24 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                           })
                           .join(', ');
                         const isExpanded = expandedPagos.has(String(pago.id));
-                        const hasConceptos = (pago.cuotaEntrenador || pago.cuotaSeguro || pago.cuotaSocial);
+                        const desglosePorDeporte = cuotasDePago.reduce((acc, cuota) => {
+                          const deporteId = Number(cuota.deporteId);
+                          if (!acc[deporteId]) {
+                            const deporte = deportes.find(d => Number(d.id) === deporteId);
+                            acc[deporteId] = {
+                              nombre: deporte?.nombre || 'Deporte desconocido',
+                              entrenador: 0,
+                              seguro: 0,
+                              social: 0,
+                            };
+                          }
+                          acc[deporteId].entrenador += cuota.cuotaEntrenador || 0;
+                          acc[deporteId].seguro += cuota.cuotaSeguro || 0;
+                          acc[deporteId].social += cuota.cuotaSocial || 0;
+                          return acc;
+                        }, {} as Record<number, { nombre: string; entrenador: number; seguro: number; social: number }>);
+                        const desgloseArray = Object.values(desglosePorDeporte);
+                        const hasConceptos = desgloseArray.some(d => d.entrenador || d.seguro || d.social);
                         
                         return (
                           <>
@@ -650,25 +667,32 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                                 <TableCell colSpan={7} className="py-3 px-6">
                                   <div className="space-y-2">
                                     <p className="text-sm font-semibold text-gray-700">Desglose de conceptos:</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                                      {pago.cuotaEntrenador > 0 && (
-                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
-                                          <span className="text-gray-600">Entrenador:</span>
-                                          <span className="font-semibold">${(pago.cuotaEntrenador || 0).toLocaleString()}</span>
+                                    <div className="space-y-3">
+                                      {desgloseArray.map((d, idx) => (
+                                        <div key={`${pago.id}-dep-${idx}`} className="rounded border bg-white p-3">
+                                          <div className="font-medium text-gray-700 mb-2">{d.nombre}</div>
+                                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                            {d.entrenador > 0 && (
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-gray-600">Entrenador:</span>
+                                                <span className="font-semibold">${d.entrenador.toLocaleString()}</span>
+                                              </div>
+                                            )}
+                                            {d.seguro > 0 && (
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-gray-600">Seguro:</span>
+                                                <span className="font-semibold">${d.seguro.toLocaleString()}</span>
+                                              </div>
+                                            )}
+                                            {d.social > 0 && (
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-gray-600">Social:</span>
+                                                <span className="font-semibold">${d.social.toLocaleString()}</span>
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
-                                      )}
-                                      {pago.cuotaSeguro > 0 && (
-                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
-                                          <span className="text-gray-600">Seguro:</span>
-                                          <span className="font-semibold">${(pago.cuotaSeguro || 0).toLocaleString()}</span>
-                                        </div>
-                                      )}
-                                      {pago.cuotaSocial > 0 && (
-                                        <div className="flex justify-between items-center p-2 bg-white rounded border">
-                                          <span className="text-gray-600">Social:</span>
-                                          <span className="font-semibold">${(pago.cuotaSocial || 0).toLocaleString()}</span>
-                                        </div>
-                                      )}
+                                      ))}
                                     </div>
                                     {pago.montoTotal !== (pago.cuotaEntrenador + pago.cuotaSeguro + pago.cuotaSocial) && (
                                       <p className="text-xs text-gray-500 mt-2">

@@ -19,6 +19,8 @@ public class Usuario {
     private String username;
     @Column(name = "password_hash", nullable = false)
     private String password;
+    @Column(name = "email", unique = true)
+    private String email;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RoleUsuario role;

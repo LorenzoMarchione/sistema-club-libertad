@@ -2,9 +2,11 @@ package com.club_libertad.controllers;
 
 import com.club_libertad.dtos.LoginDTO;
 import com.club_libertad.dtos.UsuarioDTO;
+import com.club_libertad.dtos.ChangePasswordDTO;
 import com.club_libertad.models.Usuario;
 import com.club_libertad.services.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,13 +33,22 @@ public class UsuarioController {
 
     @PostMapping("/usuario")
     @Operation(summary = "Crea un usuario", description = "Roles - 0 = ADMIN - 1 = SECRETARIO")
-    public ResponseEntity<String> createUsuario(@RequestBody UsuarioDTO usuarioTransfer){
+    public ResponseEntity<?> createUsuario(@RequestBody UsuarioDTO usuarioTransfer){
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
                 .body("Error al crear el usuario");
         try{
-            Optional<Long> id = usuarioService.saveUsuario(usuarioTransfer);
-            if(id.isPresent()) response = ResponseEntity.ok("Usuario con id " + id.get() +" creado con exito");
+            Optional<UsuarioService.UsuarioCreado> created = usuarioService.saveUsuario(usuarioTransfer);
+            if(created.isPresent()) return ResponseEntity.ok(created.get());
+        } catch (DataIntegrityViolationException e) {
+            String detail = String.valueOf(e.getMostSpecificCause().getMessage()).toLowerCase();
+            if (detail.contains("username")) {
+                return ResponseEntity.status(409).body("El nombre de usuario ya existe");
+            }
+            if (detail.contains("email")) {
+                return ResponseEntity.status(409).body("El correo ya existe");
+            }
+            return ResponseEntity.status(409).body("El usuario o correo ya existe");
         } catch (Exception e){
             System.out.println(e.getMessage());
         }
@@ -73,6 +84,18 @@ public class UsuarioController {
             response = ResponseEntity.ok("Usuario actualizado con exito");
         }
         return response;
+    }
+
+    @PostMapping("/usuario/{id}/password")
+    @Operation(summary = "Actualiza la contraseña de un usuario")
+    public ResponseEntity<String> changePassword(@PathVariable Long id, @RequestBody ChangePasswordDTO body){
+        try {
+            boolean ok = usuarioService.changePassword(id, body.getCurrentPassword(), body.getNewPassword());
+            if (ok) return ResponseEntity.ok("Contraseña actualizada con exito");
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(e.getMessage());
+        }
     }
 
     @DeleteMapping("/usuario/{id}")
