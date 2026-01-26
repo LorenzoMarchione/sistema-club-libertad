@@ -675,7 +675,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                   
                   <div className="space-y-2 md:col-span-2">
                     <Label>Promociones</Label>
-                    <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
+                    <div
+                      className="border rounded-lg divide-y overflow-y-auto"
+                      style={{ maxHeight: promociones.filter(p => p.activo !== false).length > 4 ? 200 : undefined }}
+                    >
                       {promociones.filter(p => p.activo !== false).map(promo => {
                         const checked = selectedPromociones.includes(Number(promo.id));
                         return (

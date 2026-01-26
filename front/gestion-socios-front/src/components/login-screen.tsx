@@ -46,6 +46,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       const res = await authService.login(username, password);
       const data = res.data;
       localStorage.setItem('authToken', data.token);
+      localStorage.setItem('authExpiresAt', String(Date.now() + data.expiresInMillis));
       const user = {
         id: String(data.id),
         name: data.username,

@@ -297,7 +297,10 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                     
                     <div className="space-y-3">
                       <Label>Deportes *</Label>
-                      <div className="border rounded-lg divide-y max-h-[300px] overflow-y-auto">
+                      <div
+                        className="border rounded-lg divide-y overflow-y-auto"
+                        style={{ maxHeight: deportes.length > 4 ? 220 : undefined }}
+                      >
                         {deportes.map((deporte) => (
                           <div
                             key={deporte.id}
