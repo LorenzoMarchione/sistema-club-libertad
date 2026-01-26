@@ -25,6 +25,7 @@ interface NotificacionesModuleProps {
 }
 
 export function NotificacionesModule({ userRole }: NotificacionesModuleProps) {
+  const placeholderMessage = 'Este módulo no es funcional y solo está como placeholder para futuras funciones.';
   const [historial, setHistorial] = useState<Notificacion[]>([
     {
       id: '1',
@@ -148,6 +149,9 @@ Club Deportivo`,
 
   return (
     <div className="space-y-6">
+      <div className="text-sm text-red-600 font-medium">
+        {placeholderMessage}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-3">

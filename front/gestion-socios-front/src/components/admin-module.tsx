@@ -13,6 +13,8 @@ import { Progress } from './ui/progress';
 import { toast } from 'sonner@2.0.3';
 import backupService, { BackupInfo } from '../services/backupService';
 import usuarioService from '../services/usuarioService';
+import personaService from '../services/personaService';
+import deporteService from '../services/deporteService';
 import { Usuario as UsuarioApi } from '../types/usuario';
 import api from '../services/api';
 
@@ -65,6 +67,8 @@ export function AdminModule() {
   const [userFormErrors, setUserFormErrors] = useState<{ nombre?: string; email?: string }>({});
   const [isDeleteUserDialogOpen, setIsDeleteUserDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<Usuario | null>(null);
+  const [totalSocios, setTotalSocios] = useState(0);
+  const [totalDeportes, setTotalDeportes] = useState(0);
 
   const handleCrearUsuario = async () => {
     if (!formData.nombre.trim() || !formData.email.trim()) {
@@ -164,9 +168,25 @@ export function AdminModule() {
     }
   };
 
+  const cargarEstadisticas = async () => {
+    try {
+      const [personasRes, deportesRes] = await Promise.all([
+        personaService.getAll(),
+        deporteService.getAll(),
+      ]);
+      const personas = Array.isArray(personasRes.data) ? personasRes.data : [];
+      const deportes = Array.isArray(deportesRes.data) ? deportesRes.data : [];
+      setTotalSocios(personas.length);
+      setTotalDeportes(deportes.length);
+    } catch (error) {
+      console.error('Error al cargar estadísticas:', error);
+    }
+  };
+
   useEffect(() => {
     cargarBackups();
     cargarUsuarios();
+    cargarEstadisticas();
   }, []);
 
   const handleCrearBackup = async () => {
@@ -535,13 +555,13 @@ export function AdminModule() {
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Total de Socios</CardDescription>
-            <CardTitle>75</CardTitle>
+            <CardTitle>{totalSocios}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Deportes Activos</CardDescription>
-            <CardTitle>4</CardTitle>
+            <CardTitle>{totalDeportes}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
