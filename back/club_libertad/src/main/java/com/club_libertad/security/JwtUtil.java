@@ -18,10 +18,9 @@ public class JwtUtil {
     private final long expirationMillis;
 
     public JwtUtil(
-            @Value("${app.jwt.secret:change-me-secret-key-change}") String secret,
-            @Value("${app.jwt.expirationMillis:3600000}") long expirationMillis
+            @Value("${APP_JWT_SECRET}") String secret,
+         @Value("${app.jwt.expirationMillis:3600000}") long expirationMillis
     ) {
-        // Derive HMAC key from provided secret
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
         this.expirationMillis = expirationMillis;
     }
