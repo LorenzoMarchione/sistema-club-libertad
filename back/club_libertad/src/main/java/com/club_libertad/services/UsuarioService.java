@@ -69,19 +69,26 @@ public class UsuarioService {
     }
 
 
-    //Cambiar por JWT
+    
     @Transactional(readOnly = true)
-    public Optional<Usuario> validateUsuario(LoginDTO login){
-        boolean b = false;
-        Optional<Usuario> u = getUsuarioByUsername(login.getUsername());
-        if(u.isPresent()){
-            if(u.get().getPassword().equals(login.getPassword())
-                    && Boolean.TRUE.equals(u.get().getActivo()))
-            {
-                b = true;
-            }
+    public Optional<Usuario> validateUsuario(LoginDTO login) {
+        Optional<Usuario> usuarioOpt = getUsuarioByUsername(login.getUsername());
+
+        if (usuarioOpt.isEmpty()) {
+            return Optional.empty();
         }
-        return b ? u : Optional.empty();
+
+        Usuario usuario = usuarioOpt.get();
+
+        if (!Boolean.TRUE.equals(usuario.getActivo())) {
+            return Optional.empty();
+        }
+
+        if (!passwordEncoder.matches(login.getPassword(), usuario.getPassword())) {
+            return Optional.empty();
+        }
+
+        return Optional.of(usuario);
     }
 
     @Transactional
