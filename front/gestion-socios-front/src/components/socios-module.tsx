@@ -56,6 +56,7 @@ const calcularEdad = (fechaNacimiento: string | null): number => {
   if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
     edad--;
   }
+  
   return edad;
 };
 
@@ -120,8 +121,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       setFormData(prev => ({ ...prev, fechaNacimiento: composed }));
       setFormErrors(prev => ({ ...prev, fechaNacimiento: false }));
     } else {
-      setFormData(prev => ({ ...prev, fechaNacimiento: '' }));
-      setFormErrors(prev => ({ ...prev, fechaNacimiento: true }));
+      setFormData(prev => ({ ...prev, fechaNacimiento: null }));
     }
   };
 
@@ -268,7 +268,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         fechaNacimiento: socio.fechaNacimiento,
         direccion: socio.direccion,
         telefono: socio.telefono,
-        correo: socio.correo,
+        correo: socio.email,
         responsableNombre: responsable?.nombre || '',
         responsableApellido: responsable?.apellido || '',
         responsableDni: responsable?.dni || '',
@@ -304,7 +304,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       nombre: !(formData.nombre && formData.nombre.trim().length > 0),
       apellido: !(formData.apellido && formData.apellido.trim().length > 0),
       dni: !(formData.dni && formData.dni.trim().length > 0),
-      fechaNacimiento: !(fechaNacimientoParts.day && fechaNacimientoParts.month && fechaNacimientoParts.year),
+      fechaNacimiento: false,
       responsableNombre: formData.categoria === 'JUGADOR' ? !(formData.responsableNombre && formData.responsableNombre.trim().length > 0) : false,
       responsableApellido: formData.categoria === 'JUGADOR' ? !(formData.responsableApellido && formData.responsableApellido.trim().length > 0) : false,
       responsableDni: formData.categoria === 'JUGADOR' ? !(formData.responsableDni && formData.responsableDni.trim().length > 0) : false,
@@ -320,7 +320,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       nombre: formData.nombre || '',
       apellido: formData.apellido || '',
       dni: formData.dni || '',
-      fechaNacimiento: formData.fechaNacimiento || '',
+      fechaNacimiento: formData.fechaNacimiento || null,
       email: formData.correo || null,
       telefono: formData.telefono || null,
       direccion: formData.direccion || null,
@@ -332,7 +332,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     try {
 
       if (editingSocio) {
-        await personaService.update(parseInt(editingSocio.id), socioData);
+        await personaService.update(parseInt(editingSocio.id), socioData);    
         toast.success('Socio actualizado correctamente');
       } else {
         await personaService.create(socioData);
@@ -509,13 +509,12 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label>Fecha de Nacimiento *</Label>
+                    <Label>Fecha de Nacimiento</Label>
                     <div className="grid grid-cols-3 gap-2">
                       <Select
                         value={fechaNacimientoParts.day}
                         onValueChange={(value) => updateFechaNacimiento(value, fechaNacimientoParts.month, fechaNacimientoParts.year)}
-                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                        required
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}                        
                       >
                         <SelectTrigger aria-label="Día">
                           <SelectValue placeholder="Día" />
@@ -530,8 +529,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       <Select
                         value={fechaNacimientoParts.month}
                         onValueChange={(value) => updateFechaNacimiento(fechaNacimientoParts.day, value, fechaNacimientoParts.year)}
-                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                        required
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''} 
                       >
                         <SelectTrigger aria-label="Mes">
                           <SelectValue placeholder="Mes" />
@@ -546,8 +544,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       <Select
                         value={fechaNacimientoParts.year}
                         onValueChange={(value) => updateFechaNacimiento(fechaNacimientoParts.day, fechaNacimientoParts.month, value)}
-                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                        required
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}                     
                       >
                         <SelectTrigger aria-label="Año">
                           <SelectValue placeholder="Año" />
@@ -564,31 +561,28 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="direccion">Dirección *</Label>
+                    <Label htmlFor="direccion">Dirección</Label>
                     <Input
                       id="direccion"
                       value={formData.direccion || ''}
-                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                      required
+                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}                    
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="telefono">Teléfono *</Label>
+                    <Label htmlFor="telefono">Teléfono</Label>
                     <Input
                       id="telefono"
                       value={formData.telefono || ''}
-                      onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                      required
+                      onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}                    
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="correo">Correo Electrónico *</Label>
+                    <Label htmlFor="correo">Correo Electrónico</Label>
                     <Input
                       id="correo"
                       type="email"
                       value={formData.correo || ''}
                       onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
-                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -889,11 +883,15 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           <TableCell>
                             <Badge variant="outline">{getCategoriaLabel(socio.categoria)}</Badge>
                           </TableCell>
-                          <TableCell>{calcularEdad(socio.fechaNacimiento)} años</TableCell>
+                          <TableCell>
+                          {calcularEdad(socio?.fechaNacimiento) === 0 
+                          ? "Sin edad" 
+                          : `${calcularEdad(socio?.fechaNacimiento)} años`}
+                          </TableCell>
                           <TableCell>
                             <div className="text-sm">
-                              <div>{socio.telefono}</div>
-                              <div className="text-gray-500">{socio.correo}</div>
+                              <div>{(socio?.telefono || "Sin teléfono")}</div>
+                              <div className="text-gray-500">{socio?.email || "Sin email"}</div>
                             </div>
                           </TableCell>
                           <TableCell>

@@ -137,6 +137,7 @@ public class PersonaService {
         if(persona.isPresent()){
             if(personaUpdate.getNombre() != null) persona.get().setNombre(personaUpdate.getNombre());
             if(personaUpdate.getApellido() != null) persona.get().setApellido(personaUpdate.getApellido());
+            if(personaUpdate.getFechaNacimiento() != null) persona.get().setFechaNacimiento(personaUpdate.getFechaNacimiento());
             if(personaUpdate.getEmail() != null) persona.get().setEmail(personaUpdate.getEmail());
             if(personaUpdate.getTelefono() != null) persona.get().setTelefono(personaUpdate.getTelefono());
             if(personaUpdate.getDireccion() != null) persona.get().setDireccion(personaUpdate.getDireccion());

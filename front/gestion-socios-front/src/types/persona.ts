@@ -7,7 +7,7 @@ export interface Persona {
   dni: string;
   direccion: string | null;
   telefono: string | null;
-  correo: string | null;
+  email: string | null;
   categoria: CategoriaBackend;
   edad: number;
   fechaNacimiento: string; // ISO
