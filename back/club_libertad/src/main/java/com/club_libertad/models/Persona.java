@@ -4,6 +4,7 @@ import com.club_libertad.enums.CategoriaPersona;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -31,11 +32,23 @@ public class Persona {
     private String nombre;
     @Column(nullable = false)
     private String apellido;
+    @Pattern(
+        regexp = "^[0-9]{7,8}$",
+        message = "El DNI debe tener entre 7 y 8 números, sin puntos ni espacios"
+    )
     @Column(unique = true, nullable = false)
     private String dni;
     @Column(name = "fecha_nacimiento")
     private LocalDate fechaNacimiento;
+    @Pattern(
+        regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+        message = "El formato del email no es válido"
+    )
     private String email;
+    @Pattern(
+        regexp = "^\\+?[0-9]{10,15}$",
+        message = "El teléfono debe contener entre 10 y 15 números (puede incluir + al inicio)"
+    )
     private String telefono;
     private String direccion;
     @Enumerated(EnumType.STRING)

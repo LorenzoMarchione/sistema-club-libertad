@@ -16,6 +16,6 @@ export interface Persona {
   socioResponsableDni?: string;
   deportes: string[]; // reservado para futuro
   deportesIds?: number[]; // IDs de los deportes asociados
-  estado: 'activo' | 'inactivo';
+  activo: boolean;
   fechaRegistro: string; // ISO
 }

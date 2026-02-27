@@ -120,12 +120,26 @@ public class PersonaService {
     }
 
     @Transactional
-    public boolean cambiarEstadoPersona(Long id){
+    public boolean cambiarEstadoPersona(Long id, String observacionBaja){
         boolean b = false;
         Optional<Persona> persona = personaRepository.findById(id);
         if(persona.isPresent()){
             persona.get().setActivo(!persona.get().getActivo());
-            b = true;
+            String dni = persona.get().getDni();
+            Optional<Registro> registro = registroRepository.findByDni(dni);
+            if(registro.isPresent()){
+                if(registro.get().getFechaBaja() == null){
+                    registro.get().setFechaBaja(ZonedDateTime.now());
+                    if(observacionBaja != null && !observacionBaja.trim().isEmpty()){
+                    registro.get().setObservacionBaja(observacionBaja);
+                    }
+                }
+                else{
+                    registro.get().setFechaBaja(null);
+                    registro.get().setObservacionBaja(null);
+                }
+                b = true;
+            }
         }
         return b;
     }
@@ -184,7 +198,7 @@ public class PersonaService {
         if(personaRepository.existsById(id)){
             Optional<Persona> persona = personaRepository.findById(id);
             if(persona.isPresent()){
-                // 0. Actualizar el registro con la fecha de baja y observación
+                // Actualizar el registro con la fecha de baja y observación
                 String dni = persona.get().getDni();
                 Optional<Registro> registro = registroRepository.findByDni(dni);
                 if(registro.isPresent()) {
@@ -195,21 +209,21 @@ public class PersonaService {
                     registroRepository.save(registro.get());
                 }
                 
-                // 1. Eliminar todas las cuotas asociadas a esta persona
+                // Eliminar todas las cuotas asociadas a esta persona
                 cuotaRepository.deleteByPersonaId_Id(id);
                 
-                // 2. Eliminar todas las inscripciones de esta persona
+                // Eliminar todas las inscripciones de esta persona
                 inscripcionRepository.deleteByPersonaId_Id(id);
 
-                // 2.1 Eliminar todos los pagos asociados a esta persona
+                // Eliminar todos los pagos asociados a esta persona
                 pagoRepository.deleteBySocioId_Id(id);
                 
-                // 3. Desasociar promociones y deportes (relaciones many-to-many)
+                // Desasociar promociones y deportes (relaciones many-to-many)
                 persona.get().getPromociones().clear();
                 persona.get().getDeportes().clear();
                 personaRepository.save(persona.get());
                 
-                // 4. Eliminar referencias como socioResponsable de otras personas
+                // Eliminar referencias como socioResponsable de otras personas
                 List<Persona> personasDependientes = personaRepository.findAll().stream()
                     .filter(p -> p.getSocioResponsable() != null && p.getSocioResponsable().getId().equals(id))
                     .toList();

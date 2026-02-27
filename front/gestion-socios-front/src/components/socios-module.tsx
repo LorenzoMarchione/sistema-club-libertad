@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
-import { Edit, Trash2, Search, UserPlus, History } from 'lucide-react';
+import { Edit, Trash2, Search, UserPlus, History, ArrowUpDown} from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
@@ -87,9 +87,11 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [registroDuplicado, setRegistroDuplicado] = useState<Registro | null>(null);
   const [pendingSocioData, setPendingSocioData] = useState<any | null>(null);
   const [isRegistroDialogOpen, setIsRegistroDialogOpen] = useState(false);
-  
+  const [socioToAltaBaja, setSocioToAltaBaja] = useState<Socio | null>(null);
+  const [isAltaBajaDialogOpen, setIsAltaBajaDialogOpen] = useState(false);
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
   const [historialFilter, setHistorialFilter] = useState<'todos' | 'activos' | 'inactivos'>('todos');
+  const [activeFilter, setActiveFilter] = useState<'activos' | 'inactivos'>('activos');
   const [activeTab, setActiveTab] = useState('socios');
   const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean; responsableNombre: boolean; responsableApellido: boolean; responsableDni: boolean }>({
     nombre: false,
@@ -221,6 +223,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
 
   // Filtros
   const filteredSocios = socios.filter(socio => {
+    const matchesActive = 
+    (activeFilter === 'activos' && socio.activo) || 
+    (activeFilter === 'inactivos' && !socio.activo);
+
     const matchesSearch = 
       socio.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       socio.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,7 +240,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     const deportesNombres = getDeportesNombres(socio.deportesIds);
     const matchesDeporte = filterDeporte === 'all' || deportesNombres.includes(filterDeporte);
     
-    return matchesSearch && matchesCategoria && matchesDeporte;
+    return matchesActive && matchesSearch && matchesCategoria && matchesDeporte;
   });
 
   const filteredHistorial = historialRegistros
@@ -432,6 +438,40 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       default: return 'socio';
     }
   };
+
+  const handleAltaBaja = (id: string) => {
+    const socioADarAltaBaja = socios.find(s => s.id === id);
+    if(socioADarAltaBaja){
+        setSocioToAltaBaja(socioADarAltaBaja);
+        setIsAltaBajaDialogOpen(true);
+    }
+  }
+
+  const handleConfirmAltaBaja = async () => {
+    if(socioToAltaBaja){
+      try{
+        await personaService.toggleActive(parseInt(socioToAltaBaja.id), observacionBaja || undefined);
+
+        // Buscamos al socio en la lista y mapeamos el array
+        const sociosActualizados = socios.map(s => {
+          if (s.id === socioToAltaBaja.id) {
+            // Retornamos el socio con el estado invertido
+            return { ...s, activo: !s.activo }; 
+          }
+          return s;
+        });
+        setSocios(sociosActualizados);
+
+        setObservacionBaja('');
+        setIsAltaBajaDialogOpen(false);
+        setSocioToAltaBaja(null);
+        toast.success('Socio dado de Alta/Baja correctamente');
+      } catch (error) {
+        console.error('Error al dar Alta/Baja del Socio');
+        toast.error('Error al dar Alta/Baja del Socio');
+      }
+    }
+  }
 
   if (loading) return <div>Cargando socios...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -785,6 +825,49 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                 </div>
               </DialogContent>
             </Dialog>
+            {/* Dialog de Confirmación de Alta/Baja */}
+            <Dialog open={isAltaBajaDialogOpen} onOpenChange={setIsAltaBajaDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Dar Alta/Baja Socio</DialogTitle>
+                  <DialogDescription>
+                    ¿Estás seguro de que deseas dar de {' '}
+                    <span style={{ color: socioToAltaBaja?.activo ? 'orange' : 'green', fontWeight: 'bold' }}>
+                      {socioToAltaBaja?.activo ? 'BAJA' : 'ALTA'}
+                    </span>
+                    {' '} a {socioToAltaBaja?.apellido}, {socioToAltaBaja?.nombre}?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {socioToAltaBaja?.activo && 
+                  (<div>
+                    <Label htmlFor="observacionAltaBaja">Observación de Baja (opcional)</Label>
+                    <Input
+                      id="observacionBaja"
+                      placeholder="Ej: Traslado a otra ciudad, cambio de trabajo..."
+                      value={observacionBaja}
+                      onChange={(e) => setObservacionBaja(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>)}
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsAltaBajaDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button 
+                      style={{ 
+                        backgroundColor: socioToAltaBaja?.activo ? '#f97316' : '#16a34a', 
+                        color: 'white',
+                        display: 'inline-flex' 
+                      }}
+                      onClick={handleConfirmAltaBaja}
+                    >
+                      {socioToAltaBaja?.activo ? 'Confirmar Baja' : 'Confirmar Alta'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
         <CardContent>
@@ -837,6 +920,15 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={activeFilter} onValueChange={(v) => setActiveFilter(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar filtro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="activos">Activos</SelectItem>
+                      <SelectItem value="inactivos">Inactivos</SelectItem>
+                    </SelectContent>
+                  </Select>
               </div>
 
               {/* Table */}
@@ -912,6 +1004,13 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleAltaBaja(socio.id)}
+                              >
+                                <ArrowUpDown color="#ea580c" className="w-4 h-4"/>
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -998,6 +1097,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       </TableRow>
                     ) : (
                       filteredHistorial.map((registro, index) => (
+                        <Fragment>
                         <TableRow key={`registro-${registro.id}`}>
                           <TableCell className="text-center">
                             {registro.fechaBaja && (
@@ -1017,20 +1117,19 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                             {registro.fechaBaja ? formatDate(registro.fechaBaja) : '-'}
                           </TableCell>
                         </TableRow>
+                        {/* Filas expandidas con observación de baja */}
+                        {expandedRegistroId === registro.id && registro.fechaBaja && (
+                          <TableRow key={`expanded-${registro.id}`} className="bg-gray-50">
+                            <TableCell colSpan={6} className="py-4">
+                              <div className="pl-8 border-l-2 border-blue-400">
+                                <p className="text-sm font-semibold text-gray-700 mb-2">Razón de Baja:</p>
+                                <p className="text-sm text-gray-600 italic">{registro?.observacionBaja || "Sin especificar"}</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        </Fragment>
                       ))
-                    )}
-                    {/* Filas expandidas con observación de baja */}
-                    {filteredHistorial.map((registro) => 
-                      expandedRegistroId === registro.id && registro.fechaBaja && registro.observacionBaja ? (
-                        <TableRow key={`expanded-${registro.id}`} className="bg-gray-50">
-                          <TableCell colSpan={6} className="py-4">
-                            <div className="pl-8 border-l-2 border-blue-400">
-                              <p className="text-sm font-semibold text-gray-700 mb-2">Razón de Baja:</p>
-                              <p className="text-sm text-gray-600 italic">{registro.observacionBaja}</p>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : null
                     )}
                   </TableBody>
                 </Table>

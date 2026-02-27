@@ -7,6 +7,8 @@ import com.club_libertad.services.PersonaService;
 import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,7 +42,7 @@ public class PersonaController {
 
     @PostMapping("/persona")
     @Operation(summary = "Crea una persona (Socio o Jugador)", description = "Roles - 0 = SOCIO - 1 = JUGADOR - 2 = SOCIOYJUGADOR")
-    public ResponseEntity<?> createPersona(@RequestBody PersonaDTO personaTransfer) {
+    public ResponseEntity<?> createPersona(@Valid @RequestBody PersonaDTO personaTransfer) {
         ResponseEntity<String> response = ResponseEntity
                 .status(400)
                 .body("Error al crear la persona");
@@ -75,16 +77,16 @@ public class PersonaController {
 
     @PatchMapping("/persona/activo/{id}")
     @Operation(summary = "Da de baja/alta a una persona por su id")
-    public ResponseEntity<String> cambiarEstadoPersona(@PathVariable Long id) {
+    public ResponseEntity<String> cambiarEstadoPersona(@PathVariable Long id, @RequestParam(required = false) String observacionBaja) {
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        boolean b = personaService.cambiarEstadoPersona(id);
+        boolean b = personaService.cambiarEstadoPersona(id, observacionBaja);
         if(b) response = ResponseEntity.ok("Persona con id " + id + " dada de baja/alta con exito");
         return response;
     }
 
     @PatchMapping("/persona/{id}")
     @Operation(summary = "Actualiza uno o varios campos de una persona por su id")
-    public ResponseEntity<String> updatePersona(@PathVariable Long id, @RequestBody Persona persona) {
+    public ResponseEntity<String> updatePersona(@PathVariable Long id, @Valid @RequestBody Persona persona) {
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = personaService.updatePersonaParcial(id, persona);
         if(b) response = ResponseEntity.ok("Persona con id " + id + " actualizada con exito");

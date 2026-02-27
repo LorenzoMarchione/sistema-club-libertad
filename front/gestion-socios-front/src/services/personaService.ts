@@ -38,8 +38,16 @@ const personaService = {
     return api.patch<string>(PERSONA_ENDPOINTS.UPDATE(id), persona);
   },
 
-  toggleActive(id: number) {
-    return api.patch<string>(PERSONA_ENDPOINTS.TOGGLE_ACTIVE(id));
+  toggleActive(id: number, observacionBaja?: string) {
+    const params = new URLSearchParams();
+    if (observacionBaja) {
+      params.append('observacionBaja', observacionBaja);
+    }
+    const queryString = params.toString();
+    return api.patch<string>(`/persona/activo/${id}${queryString ? '?' + queryString : ''}`).catch(error => {
+      console.error('Error al dar Alta/Baja a la persona:', error);
+      throw error;
+    });;
   },
 
   asociarDeporte(personaId: number, deporteId: number) {
