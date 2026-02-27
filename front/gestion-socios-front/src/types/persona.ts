@@ -9,13 +9,13 @@ export interface Persona {
   telefono: string | null;
   email: string | null;
   categoria: CategoriaBackend;
-  edad: number;
+  edad?: number;
   fechaNacimiento: string; // ISO
   socioResponsable?: Persona; // "Nombre Apellido (DNI: XXXXXXXX)"
   socioResponsableId?: number;
   socioResponsableDni?: string;
-  deportes: string[]; // reservado para futuro
+  deportes?: string[]; // reservado para futuro
   deportesIds?: number[]; // IDs de los deportes asociados
-  activo: boolean;
+  activo?: boolean;
   fechaRegistro: string; // ISO
 }

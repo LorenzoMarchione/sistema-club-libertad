@@ -36,6 +36,7 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
     cuotaSeguro: false,
     cuotaSocial: false,
   });
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const totalCuota = (formData.cuotaEntrenador ?? 0) + (formData.cuotaSeguro ?? 0) + (formData.cuotaSocial ?? 0);
 
@@ -142,9 +143,10 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
   };
 
   const handleOpenAssociateDialog = () => {
-    setSelectedPersonaId('');
+    setSelectedPersonaId(null);
     setSelectedDeportes([]);
     setSearchPersona('');
+    setIsDropdownOpen(false);
     setIsAssociateDialogOpen(true);
   };
 
@@ -256,13 +258,20 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                           type="text"
                           placeholder="Buscar por nombre, apellido o DNI..."
                           value={searchPersona}
-                          onChange={(e) => setSearchPersona(e.target.value)}
+                          onFocus={() => setIsDropdownOpen(true)} // Abrir al hacer click
+                          onChange={(e) => {
+                            setSearchPersona(e.target.value);
+                            setIsDropdownOpen(true); // Asegurar que se abra al escribir
+                            if (selectedPersonaId) setSelectedPersonaId(null); // Resetear selección si vuelve a escribir
+                            }}
                         />
-                        {searchPersona.trim().length > 0 && (
+                        {isDropdownOpen && searchPersona.trim().length > 0 && (
                           <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
                             {personas
                               .filter((persona) => {
                                 const search = searchPersona.toLowerCase().trim();
+                                if(searchPersona.includes(" - DNI: ")) return true;
+                                
                                 const nombreCompleto = `${persona.nombre} ${persona.apellido}`.toLowerCase();
                                 return nombreCompleto.includes(search) || 
                                        persona.dni?.toLowerCase().includes(search);
@@ -273,6 +282,7 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
                                   onClick={() => {
                                     setSelectedPersonaId(persona.id);
                                     setSearchPersona(`${persona.nombre} ${persona.apellido} - DNI: ${persona.dni}`);
+                                    setIsDropdownOpen(false);
                                   }}
                                   className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 ${
                                     selectedPersonaId === persona.id ? 'bg-gray-50' : ''

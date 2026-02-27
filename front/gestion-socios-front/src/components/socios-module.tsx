@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
-import { Edit, Trash2, Search, UserPlus, History, ArrowUpDown} from 'lucide-react';
+import { Edit, Trash2, Search, UserPlus, History, ArrowUpDown, SquareArrowDown, SquareArrowRight} from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
@@ -93,7 +93,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [historialFilter, setHistorialFilter] = useState<'todos' | 'activos' | 'inactivos'>('todos');
   const [activeFilter, setActiveFilter] = useState<'activos' | 'inactivos'>('activos');
   const [activeTab, setActiveTab] = useState('socios');
-  const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean; responsableNombre: boolean; responsableApellido: boolean; responsableDni: boolean }>({
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean; responsableNombre: boolean; responsableApellido: boolean; responsableDni: boolean; telefono: boolean; email:boolean }>({
     nombre: false,
     apellido: false,
     dni: false,
@@ -101,6 +101,8 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     responsableNombre: false,
     responsableApellido: false,
     responsableDni: false,
+    telefono: false,
+    email: false,
   });
   const [fechaNacimientoParts, setFechaNacimientoParts] = useState<{ day: string; month: string; year: string }>({
     day: '',
@@ -115,6 +117,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   }));
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 90 }, (_, i) => String(currentYear - i));
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const DNI_REGEX = /^\d{7,8}$/; // DNI argentino (7 u 8 números)
+  const TEL_REGEX = /^\+?[0-9]{10,15}$/;
 
   const updateFechaNacimiento = (day: string, month: string, year: string) => {
     setFechaNacimientoParts({ day, month, year });
@@ -173,7 +178,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
           ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
           : responsable ? `${responsable.nombre} ${responsable.apellido} (DNI: ${responsable.dni})` : undefined,
         responsableDni: responsable?.dni,
-        estado: persona.estado,
+        estado: persona.activo ? 'activo' : 'inactivo',
         //=========================================================================
         // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
         deportes: Array.isArray(persona.deportes) ? persona.deportes : [], // <-- default
@@ -300,7 +305,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       });
       setFechaNacimientoParts({ day: '', month: '', year: '' });
     }
-    setFormErrors({ nombre: false, apellido: false, dni: false, fechaNacimiento: false, responsableNombre: false, responsableApellido: false, responsableDni: false });
+    setFormErrors({ nombre: false, apellido: false, dni: false, fechaNacimiento: false, responsableNombre: false, responsableApellido: false, responsableDni: false, telefono: false, email: false });
     setIsDialogOpen(true);
   };
 
@@ -336,13 +341,19 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     };
 
     try {
-
       if (editingSocio) {
-        await personaService.update(parseInt(editingSocio.id), socioData);    
+        toast.promise(personaService.update(parseInt(editingSocio.id), socioData), {
+          loading: 'Actualizando socio...',
+          success: '¡Socio actualizado correctamente!',
+          error: 'No se pudo actualizar al socio',
+        });    
         toast.success('Socio actualizado correctamente');
       } else {
-        await personaService.create(socioData);
-        toast.success('Socio registrado correctamente');
+        toast.promise(personaService.create(socioData), {
+          loading: 'Registrando nuevo socio...',
+          success: '¡Socio registrado correctamente!',
+          error: 'No se pudo regitrar al socio',
+        });
       }
 
       // Recargar la lista
@@ -465,7 +476,12 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         setObservacionBaja('');
         setIsAltaBajaDialogOpen(false);
         setSocioToAltaBaja(null);
-        toast.success('Socio dado de Alta/Baja correctamente');
+        if(socioToAltaBaja.activo){
+          toast.warning('Socio dado de BAJA correctamente');
+        }
+        else{
+          toast.success('Socio dado de ALTA correctamente');
+        }
       } catch (error) {
         console.error('Error al dar Alta/Baja del Socio');
         toast.error('Error al dar Alta/Baja del Socio');
@@ -538,14 +554,19 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       id="dni"
                       value={formData.dni || ''}
                       onChange={(e) => {
-                        setFormData({ ...formData, dni: e.target.value });
-                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, dni: false }));
-                      }}
-                      className={formErrors.dni ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                      required
+                        const val = e.target.value;
+                        setFormData({ ...formData, dni: val });
+                        setFormErrors(prev => ({ 
+                        ...prev, 
+                        dni: val.trim().length === 0 || !DNI_REGEX.test(val) 
+                        }));
+                        }}
+                        className={formErrors.dni ? 'border-red-500' : ''}
                     />
                     {formErrors.dni && (
-                      <p className="text-xs text-red-600">Completa el DNI</p>
+                      <p className="text-xs text-red-600 mt-1">
+                      {formData.dni?.length === 0 ? 'Completa el DNI' : 'DNI inválido (debe tener 7 u 8 números)'}
+                    </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -613,8 +634,20 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     <Input
                       id="telefono"
                       value={formData.telefono || ''}
-                      onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}                    
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, telefono: val });
+                        // El teléfono suele ser opcional, validamos solo si hay algo escrito
+                        setFormErrors(prev => ({ 
+                        ...prev, 
+                        telefono: val.length > 0 && !TEL_REGEX.test(val) 
+                        }));
+                      }}
+                      className={formErrors.telefono ? 'border-red-500' : ''}                   
                     />
+                    {formErrors.telefono && (
+                    <p className="text-xs text-red-600 mt-1">Formato de teléfono inválido (solo números (entre 10 y 15))</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="correo">Correo Electrónico</Label>
@@ -622,8 +655,20 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       id="correo"
                       type="email"
                       value={formData.correo || ''}
-                      onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, correo: val });
+                        // Validamos solo si hay algo escrito
+                        setFormErrors(prev => ({ 
+                        ...prev, 
+                        email: val.length > 0 && !EMAIL_REGEX.test(val) 
+                        }));
+                      }}
+                      className={formErrors.email ? 'border-red-500' : ''}
                     />
+                    {formErrors.email && (
+                      <p className="text-xs text-red-600 mt-1">Ingresa un correo electrónico válido</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="categoria">Categoría *</Label>
@@ -886,7 +931,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
             {/* Tab de Socios */}
             <TabsContent value="socios" className="space-y-4">
               {/* Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="relative sm:col-span-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
@@ -1105,7 +1150,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                                 onClick={() => setExpandedRegistroId(expandedRegistroId === registro.id ? null : registro.id)}
                                 className="text-blue-600 hover:text-blue-800 cursor-pointer text-lg leading-none"
                               >
-                                {expandedRegistroId === registro.id ? '▼' : '▶'}
+                                {expandedRegistroId === registro.id ? <SquareArrowDown/> : <SquareArrowRight/>}
                               </button>
                             )}
                           </TableCell>

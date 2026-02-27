@@ -14,6 +14,7 @@ import { PromocionesModule } from './components/promociones-module';
 import { LoginScreen } from './components/login-screen';
 import { PerfilModule } from './components/perfil-module';
 import authService from './services/authService';
+import { Toaster } from 'sonner';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<{
@@ -213,6 +214,8 @@ export default function App() {
           )}
         </Tabs>
       </main>
+
+      <Toaster position="bottom-left" richColors closeBUtton />
     </div>
   );
 }
