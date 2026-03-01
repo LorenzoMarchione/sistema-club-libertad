@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -21,7 +20,7 @@ import java.util.stream.Collectors;
 @Entity
 @Table(name = "persona")
 @Data
-@EqualsAndHashCode(exclude = {"deportes", "socioResponsable", "promociones"})
+@EqualsAndHashCode(exclude = {"deportes", "socioResponsable", "promocion"})
 @AllArgsConstructor
 @NoArgsConstructor
 public class Persona {
@@ -69,15 +68,11 @@ public class Persona {
         joinColumns = @JoinColumn(name = "persona_id"),
         inverseJoinColumns = @JoinColumn(name = "deporte_id")
     )
-    private Set<Deporte> deportes = new HashSet<>();
+    private Set<Deporte> deportes;
     @JsonIgnore
-    @ManyToMany
-    @JoinTable(
-        name = "persona_promocion",
-        joinColumns = @JoinColumn(name = "persona_id"),
-        inverseJoinColumns = @JoinColumn(name = "promocion_id")
-    )
-    private Set<Promocion> promociones = new HashSet<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promocion_id")
+    private Promocion promocion;
 
     @JsonProperty("socioResponsableId")
     public Long getSocioResponsableId() {
@@ -91,10 +86,9 @@ public class Persona {
                 .collect(Collectors.toList()) : null;
     }
 
-    @JsonProperty("promocionesIds")
-    public List<Long> getPromocionesIds() {
-        return promociones != null ? promociones.stream()
-                .map(Promocion::getId)
-                .collect(Collectors.toList()) : null;
+    @JsonProperty("promocionId")
+    public Long getPromocionId(){
+        return promocion != null ? promocion.getId() : null;
     }
+
 }

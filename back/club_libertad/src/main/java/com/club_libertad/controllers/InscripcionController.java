@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-@RestController("/inscripcionController")
+@RestController(value = "/inscripcionController")
 public class InscripcionController {
     private final InscripcionService inscripcionService;
     public InscripcionController(InscripcionService inscripcionService) {
@@ -51,12 +51,12 @@ public class InscripcionController {
         return response;
     }
 
-    @PatchMapping("/inscripcion/{id}")
+    @PatchMapping("/inscripcion/{idPersona}/{idDeporte}")
     @Operation(summary = "Da de baja una inscripcion por su id")
-    public ResponseEntity<String> bajaInscripcion(@PathVariable Long id){
+    public ResponseEntity<String> bajaInscripcion(@PathVariable Long idPersona, @PathVariable Long idDeporte){
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
-        boolean b = inscripcionService.darBajaInscripcion(id);
-        if(b) response = ResponseEntity.ok("Inscripcion con id " + id + " dada de baja con exito");
+        boolean b = inscripcionService.darBajaInscripcion(idPersona, idDeporte);
+        if(b) response = ResponseEntity.ok("Inscripcion dada de baja con exito");
         return response;
     }
 

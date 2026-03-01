@@ -4,7 +4,6 @@ import com.club_libertad.dtos.DeporteDTO;
 import com.club_libertad.models.Deporte;
 import com.club_libertad.models.Persona;
 import com.club_libertad.repositories.DeporteRepository;
-import com.club_libertad.repositories.PersonaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,11 +15,9 @@ import java.util.Set;
 @Service
 public class DeporteService {
     private final DeporteRepository deporteRepository;
-    private final PersonaRepository personaRepository;
     
-    public DeporteService(DeporteRepository deporteRepository, PersonaRepository personaRepository) {
+    public DeporteService(DeporteRepository deporteRepository) {
         this.deporteRepository = deporteRepository;
-        this.personaRepository = personaRepository;
     }
 
     @Transactional(readOnly = true)

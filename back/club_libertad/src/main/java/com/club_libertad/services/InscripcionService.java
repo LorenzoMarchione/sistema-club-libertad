@@ -31,27 +31,39 @@ public class    InscripcionService {
 
     @Transactional
     public Optional<Long> saveInscripcion(InscripcionDTO inscripcionTransfer){
-        Inscripcion inscripcionCreate = new Inscripcion();
-        Persona personaExisting = new Persona();
-        personaExisting.setId(inscripcionTransfer.getPersonaId());
-        inscripcionCreate.setPersonaId(personaExisting);
-        Deporte deporteExisting = new Deporte();
-        deporteExisting.setId(inscripcionTransfer.getDeporteId());
-        inscripcionCreate.setDeporteId(deporteExisting);
-        inscripcionCreate.setFechaInscripcion(inscripcionTransfer.getFechaInscripcion());
-        Inscripcion inscripcionCreated = inscripcionRepository.save(inscripcionCreate);
-        return Optional.of(inscripcionCreated.getId());
+        Optional<Long> id = Optional.empty();
+        Optional<Inscripcion> i = inscripcionRepository
+        .findByPersonaId_IdAndDeporteId_Id(
+            inscripcionTransfer.getPersonaId(), inscripcionTransfer.getDeporteId()
+        );
+        if(i.isPresent()){
+            i.get().setFechaBaja(null);
+            id = Optional.of(i.get().getId());
+        }
+        else{
+            Inscripcion inscripcionCreate = new Inscripcion();
+            Persona personaExisting = new Persona();
+            personaExisting.setId(inscripcionTransfer.getPersonaId());
+            inscripcionCreate.setPersonaId(personaExisting);
+            Deporte deporteExisting = new Deporte();
+            deporteExisting.setId(inscripcionTransfer.getDeporteId());
+            inscripcionCreate.setDeporteId(deporteExisting);
+            inscripcionCreate.setFechaInscripcion(inscripcionTransfer.getFechaInscripcion());
+            Inscripcion inscripcionCreated = inscripcionRepository.save(inscripcionCreate);
+            id = Optional.of(inscripcionCreated.getId());
+        }
+        
+        return id;
     }
 
     @Transactional
-    public boolean darBajaInscripcion(Long id){
+    public boolean darBajaInscripcion(Long idPersona, Long idDeporte){
         boolean b = false;
-        Optional<Inscripcion> i = inscripcionRepository.findById(id);
+        Optional<Inscripcion> i = inscripcionRepository.findByPersonaId_IdAndDeporteId_IdAndFechaBajaIsNull(idPersona, idDeporte);
         if(i.isPresent()){
             i.get().setFechaBaja(LocalDate.now());
             b = true;
         }
-
         return b;
     }
 }

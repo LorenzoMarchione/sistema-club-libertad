@@ -72,7 +72,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [filterDeporte, setFilterDeporte] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSocio, setEditingSocio] = useState<Socio | null>(null);
-  const [selectedPromociones, setSelectedPromociones] = useState<number[]>([]);
+  const [selectedPromocionId, setSelectedPromocionId] = useState<Number | null>(null);
   const [formData, setFormData] = useState<FormSocio>({
     categoria: 'SOCIO',
     estado: 'activo',
@@ -270,7 +270,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const handleOpenDialog = (socio?: Socio) => {
     if (socio) {
       setEditingSocio(socio);
-      setSelectedPromociones(socio.promocionesIds || []);
+      setSelectedPromocionId(socio.promocionId || null);
       const responsable = socio.socioResponsable || (socio.socioResponsableId ? socios.find(s => Number(s.id) === Number(socio.socioResponsableId)) : undefined);
       setFormData({
         nombre: socio.nombre,
@@ -295,7 +295,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       });
     } else {
       setEditingSocio(null);
-      setSelectedPromociones([]);
+      setSelectedPromocionId(null);
       setFormData({
         categoria: 'SOCIO',
         estado: 'activo',
@@ -336,10 +336,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       telefono: formData.telefono || null,
       direccion: formData.direccion || null,
       categoria: formData.categoria,
-      promocionesIds: selectedPromociones,
+      promocionId: selectedPromocionId || null,
       ...(formData.categoria === 'JUGADOR' && formData.responsableDni ? { socioResponsableDni: formData.responsableDni } : {}),
     };
-
+    
     try {
       if (editingSocio) {
         toast.promise(personaService.update(parseInt(editingSocio.id), socioData), {
@@ -347,7 +347,6 @@ export function SociosModule({ userRole }: SociosModuleProps) {
           success: '¡Socio actualizado correctamente!',
           error: 'No se pudo actualizar al socio',
         });    
-        toast.success('Socio actualizado correctamente');
       } else {
         toast.promise(personaService.create(socioData), {
           loading: 'Registrando nuevo socio...',
@@ -759,18 +758,14 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       style={{ maxHeight: promociones.filter(p => p.activo !== false).length > 4 ? 200 : undefined }}
                     >
                       {promociones.filter(p => p.activo !== false).map(promo => {
-                        const checked = selectedPromociones.includes(Number(promo.id));
+                        const isSelected = selectedPromocionId === Number(promo.id);
                         return (
                           <div key={promo.id} className="flex items-start gap-3 p-3">
                             <Checkbox
                               id={`promo-${promo.id}`}
-                              checked={checked}
+                              checked={isSelected}
                               onCheckedChange={(val) => {
-                                if (val) {
-                                  setSelectedPromociones(prev => [...prev, Number(promo.id)]);
-                                } else {
-                                  setSelectedPromociones(prev => prev.filter(id => id !== Number(promo.id)));
-                                }
+                                setSelectedPromocionId(val ? Number(promo.id) : null);
                               }}
                             />
                             <label htmlFor={`promo-${promo.id}`} className="flex-1 cursor-pointer">
@@ -778,6 +773,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                               {promo.descripcion && (
                                 <div className="text-sm text-gray-500">{promo.descripcion}</div>
                               )}
+                              <div className="text-xs font-bold text-blue-600">
+                                {promo.descuento}{promo.tipoDescuento === 'PORCENTAJE' ? '%' : '$'} de descuento
+                              </div>
                             </label>
                           </div>
                         );
@@ -786,9 +784,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                         <div className="p-3 text-sm text-gray-500">No hay promociones activas</div>
                       )}
                     </div>
-                    {selectedPromociones.length > 0 && (
+                    {selectedPromocionId && (
                       <p className="text-sm text-gray-600">
-                        {selectedPromociones.length} promoción(es) seleccionada(s)
+                        Se aplicará esta promoción al socio.
                       </p>
                     )}
                   </div>

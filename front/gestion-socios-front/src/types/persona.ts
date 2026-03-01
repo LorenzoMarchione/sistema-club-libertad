@@ -18,4 +18,5 @@ export interface Persona {
   deportesIds?: number[]; // IDs de los deportes asociados
   activo?: boolean;
   fechaRegistro: string; // ISO
+  promocionId?: number;
 }

@@ -5,8 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Badge } from './ui/badge';
-import { Plus, Edit, Trash2, Users as UsersIcon, DollarSign, Tag, Percent, UserPlus, Check } from 'lucide-react';
+import { Plus, Edit, Trash2, Users as UsersIcon, DollarSign, UserPlus, UserMinus, Check } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import deporteService from '../services/deporteService';
@@ -25,6 +24,7 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAssociateDialogOpen, setIsAssociateDialogOpen] = useState(false);
+  const [isDeassociateDialogOpen, setIsDeassociateDialogOpen] = useState(false);
   const [editingDeporte, setEditingDeporte] = useState<Deporte | null>(null);
   const [formData, setFormData] = useState<{ nombre: string; descripcion?: string; cuotaEntrenador: number; cuotaSeguro: number; cuotaSocial: number }>({ nombre: '', descripcion: '', cuotaEntrenador: 0, cuotaSeguro: 0, cuotaSocial: 0 });
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
@@ -40,6 +40,10 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
 
   const totalCuota = (formData.cuotaEntrenador ?? 0) + (formData.cuotaSeguro ?? 0) + (formData.cuotaSocial ?? 0);
 
+  const deportesActivosDePersona = deportes.filter((deporte: Deporte) => 
+    deporte.personasIds?.includes(selectedPersonaId)
+  );
+  
   // Cargar deportes desde el backend
   const loadDeportes = async () => {
     try {
@@ -150,6 +154,14 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
     setIsAssociateDialogOpen(true);
   };
 
+  const handleOpenDeassociateDialog = () => {
+    setSelectedPersonaId(null);
+    setSelectedDeportes([]);
+    setSearchPersona('');
+    setIsDropdownOpen(false);
+    setIsDeassociateDialogOpen(true);
+  };
+
   const handleToggleDeporte = (deporteId: number) => {
     setSelectedDeportes(prev =>
       prev.includes(deporteId)
@@ -189,6 +201,30 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
       await loadPersonas();
     } catch (error) {
       toast.error('Error al asociar e inscribir deportes');
+      console.error('Error:', error);
+    }
+  };
+
+  const handleDeassociate = async () => {
+    if (!selectedPersonaId || selectedDeportes.length === 0) {
+      toast.error('Selecciona una persona y al menos un deporte');
+      return;
+    }
+
+    try {
+      const personaIdNum = parseInt(selectedPersonaId);
+
+      for (const deporteId of selectedDeportes) {
+        await personaService.desasociarDeporte(personaIdNum, deporteId);
+        await inscripcionService.darBaja(personaIdNum, deporteId);
+      }
+
+      toast.success(`Persona desasociada a ${selectedDeportes.length} deporte(s) correctamente`);
+      setIsDeassociateDialogOpen(false);
+      await loadDeportes();
+      await loadPersonas();
+    } catch (error) {
+      toast.error('Error al Desasociar e Desincribir deportes');
       console.error('Error:', error);
     }
   };
@@ -235,6 +271,140 @@ export function DeportesModule({ userRole }: DeportesModuleProps) {
               <CardDescription>Gestión de deportes ofrecidos por el club</CardDescription>
             </div>
             <div className="flex gap-2">
+
+              <Dialog open={isDeassociateDialogOpen} onOpenChange={setIsDeassociateDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" onClick={handleOpenDeassociateDialog}>
+                      <UserMinus className="w-4 h-4 mr-2" />
+                      Desasociar Persona
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Desasociar Persona a Deportes</DialogTitle>
+                    <DialogDescription>
+                      Selecciona una persona y los deportes a los que deseas desinscribirla
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="persona">Persona *</Label>
+                      <div className="relative">
+                        <Input
+                          id="search-persona"
+                          type="text"
+                          placeholder="Buscar por nombre, apellido o DNI..."
+                          value={searchPersona}
+                          onFocus={() => setIsDropdownOpen(true)} // Abrir al hacer click
+                          onChange={(e) => {
+                            setSearchPersona(e.target.value);
+                            setIsDropdownOpen(true); // Asegurar que se abra al escribir
+                            if (selectedPersonaId) setSelectedPersonaId(null); // Resetear selección si vuelve a escribir
+                            }}
+                        />
+                        {isDropdownOpen && searchPersona.trim().length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+                            {personas
+                              .filter((persona) => {
+                                const search = searchPersona.toLowerCase().trim();
+                                if(searchPersona.includes(" - DNI: ")) return true;
+                                
+                                const nombreCompleto = `${persona.nombre} ${persona.apellido}`.toLowerCase();
+                                return nombreCompleto.includes(search) || 
+                                       persona.dni?.toLowerCase().includes(search);
+                              })
+                              .map((persona) => (
+                                <div
+                                  key={persona.id}
+                                  onClick={() => {
+                                    setSelectedPersonaId(persona.id);
+                                    setSearchPersona(`${persona.nombre} ${persona.apellido} - DNI: ${persona.dni}`);
+                                    setIsDropdownOpen(false);
+                                    setSelectedDeportes([]);
+                                  }}
+                                  className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 ${
+                                    selectedPersonaId === persona.id ? 'bg-gray-50' : ''
+                                  }`}
+                                >
+                                  {selectedPersonaId === persona.id && (
+                                    <Check className="w-4 h-4 text-green-600" />
+                                  )}
+                                  <span>
+                                    {persona.nombre} {persona.apellido} - DNI: {persona.dni}
+                                  </span>
+                                </div>
+                              ))}
+                            {personas.filter((persona) => {
+                              const search = searchPersona.toLowerCase().trim();
+                              const nombreCompleto = `${persona.nombre} ${persona.apellido}`.toLowerCase();
+                              return nombreCompleto.includes(search) || 
+                                     persona.dni?.toLowerCase().includes(search);
+                            }).length === 0 && (
+                              <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                                No se encontraron personas
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <Label>Deportes donde esta inscripto *</Label>
+                      <div
+                        className="border rounded-lg divide-y overflow-y-auto"
+                        style={{ maxHeight: deportes.length > 4 ? 220 : undefined }}
+                      >
+                        {selectedPersonaId ? (
+                          deportesActivosDePersona.length > 0 ? (
+                            deportesActivosDePersona.map((deporte) => (
+                          <div
+                            key={deporte.id}
+                            className="flex items-center space-x-3 p-3 hover:bg-gray-50"
+                          >
+                            <Checkbox
+                              id={`deporte-${deporte.id}`}
+                              checked={selectedDeportes.includes(deporte.id!)}
+                              onCheckedChange={() => handleToggleDeporte(deporte.id!)}
+                            />
+                            <label
+                              htmlFor={`deporte-${deporte.id}`}
+                              className="flex-1 cursor-pointer"
+                            >
+                              <div className="font-medium">{deporte.nombre}</div>
+                            </label>
+                          </div>
+                        ))) : (
+                          <div className="p-4 text-center text-sm text-gray-500 italic">
+                            Esta persona no registra inscripciones en ningún deporte.
+                          </div>
+                        )) : (
+                          <div className="p-4 text-center text-sm text-gray-400">
+                            Primero selecciona una persona para ver sus deportes.
+                          </div>
+                        )}
+                      </div>
+                      {selectedDeportes.length > 0 && (
+                        <p className="text-sm text-gray-600">
+                          {selectedDeportes.length} deporte(s) seleccionado(s)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsDeassociateDialogOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleDeassociate}>
+                      Deasociar Deportes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               <Dialog open={isAssociateDialogOpen} onOpenChange={setIsAssociateDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" onClick={handleOpenAssociateDialog}>

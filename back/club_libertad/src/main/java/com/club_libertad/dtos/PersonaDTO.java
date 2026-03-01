@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -37,5 +36,5 @@ public class PersonaDTO {
     public Long socioResponsableId;
     public String socioResponsableDni;
     public Boolean usarRegistroExistente;
-    public List<Long> promocionesIds;
+    public Long promocionId;
 }

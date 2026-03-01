@@ -86,7 +86,7 @@ public class PersonaController {
 
     @PatchMapping("/persona/{id}")
     @Operation(summary = "Actualiza uno o varios campos de una persona por su id")
-    public ResponseEntity<String> updatePersona(@PathVariable Long id, @Valid @RequestBody Persona persona) {
+    public ResponseEntity<String> updatePersona(@PathVariable Long id, @Valid @RequestBody PersonaDTO persona) {
         ResponseEntity<String> response = ResponseEntity.badRequest().build();
         boolean b = personaService.updatePersonaParcial(id, persona);
         if(b) response = ResponseEntity.ok("Persona con id " + id + " actualizada con exito");

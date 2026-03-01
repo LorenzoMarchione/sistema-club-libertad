@@ -12,8 +12,6 @@ import com.club_libertad.repositories.CuotaRepository;
 import com.club_libertad.repositories.PagoRepository;
 import com.club_libertad.repositories.PromocionRepository;
 import com.club_libertad.models.Registro;
-import com.club_libertad.models.Inscripcion;
-import com.club_libertad.models.Cuota;
 import com.club_libertad.models.Promocion;
 
 import org.springframework.stereotype.Service;
@@ -93,17 +91,13 @@ public class PersonaService {
                 return Optional.empty();
             }
         }
-        Persona p = personaRepository.save(personaCreate);
         
         // Asignar promociones si vienen en el DTO
-        if(personaTransfer.getPromocionesIds() != null && !personaTransfer.getPromocionesIds().isEmpty()) {
-            for(Long promoId : personaTransfer.getPromocionesIds()) {
-                Optional<Promocion> promoOpt = promocionRepository.findById(promoId);
-                if(promoOpt.isPresent()) {
-                    p.getPromociones().add(promoOpt.get());
-                }
+        if(personaTransfer.getPromocionId() != null) {
+            Optional<Promocion> promoOpt = promocionRepository.findById(personaTransfer.getPromocionId());
+            if(promoOpt.isPresent()) {
+                personaCreate.setPromocion(promoOpt.get());
             }
-            personaRepository.save(p);
         }
 
         // Crear registro inmutable asociado a la creación de la persona
@@ -115,6 +109,8 @@ public class PersonaService {
         if (registroExistente.isEmpty()) {
             registroRepository.save(registro);
         }
+
+        Persona p = personaRepository.save(personaCreate);
 
         return Optional.of(p.getId());
     }
@@ -145,7 +141,7 @@ public class PersonaService {
     }
 
     @Transactional
-    public boolean updatePersonaParcial(Long id, Persona personaUpdate){
+    public boolean updatePersonaParcial(Long id, PersonaDTO personaUpdate){
         boolean b = false;
         Optional<Persona> persona = getPersonaById(id);
         if(persona.isPresent()){
@@ -156,8 +152,16 @@ public class PersonaService {
             if(personaUpdate.getTelefono() != null) persona.get().setTelefono(personaUpdate.getTelefono());
             if(personaUpdate.getDireccion() != null) persona.get().setDireccion(personaUpdate.getDireccion());
             if(personaUpdate.getCategoria() != null) persona.get().setCategoria(personaUpdate.getCategoria());
-            if(personaUpdate.getSocioResponsable() != null) persona.get().setSocioResponsable(personaUpdate.getSocioResponsable());
-            if(personaUpdate.getPromociones() != null) persona.get().setPromociones(personaUpdate.getPromociones());
+            if(personaUpdate.getSocioResponsableId() != null){
+                Persona p = new Persona();
+                p.setId(personaUpdate.getSocioResponsableId());
+                persona.get().setSocioResponsable(p);
+            } 
+            if(personaUpdate.getPromocionId() != null){
+                Promocion p = new Promocion();
+                p.setId(personaUpdate.getPromocionId());
+                persona.get().setPromocion(p);
+            }
             b = true;
         }
         return b;
@@ -219,7 +223,7 @@ public class PersonaService {
                 pagoRepository.deleteBySocioId_Id(id);
                 
                 // Desasociar promociones y deportes (relaciones many-to-many)
-                persona.get().getPromociones().clear();
+                persona.get().setPromocion(null);
                 persona.get().getDeportes().clear();
                 personaRepository.save(persona.get());
                 
