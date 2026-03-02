@@ -257,7 +257,8 @@ docker exec -it cl_db psql -U postgres
 ## 👨‍💻 Autor
 
 Lorenzo Marchione
-Técnico en Programación
+Renzo Hirschfield
+Técnicos en Programación
 Proyecto de Práctica Profesionalizante
 
 ---
