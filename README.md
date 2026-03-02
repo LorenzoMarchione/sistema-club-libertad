@@ -1,93 +1,269 @@
-# 🏀 Practica Profesionalizante Club Libertad
+---
 
-Proyecto desarrollado como parte de la **Práctica Profesionalizante**.  
-El objetivo es crear un sistema web moderno para la gestión del Club Libertad, permitiendo administrar información, actividades y procesos internos del club de manera eficiente.
+# 🏟️ Sistema de Gestión de Socios – Club Libertad
+
+Sistema web desarrollado como proyecto de práctica profesionalizante para la gestión administrativa de socios del Club Libertad.
+
+Permite administrar altas, bajas y modificaciones de socios, autenticación segura de usuarios y despliegue en servidor VPS con HTTPS.
 
 ---
 
-## 🚀 Tecnologías utilizadas
+## 📌 Descripción General
 
-### 🖥️ Frontend
-- **React** con **Vite**
-- **TypeScript**
-- **Figma** (diseño base del prototipo)
-- **TailwindCSS / ShadCN (si aplica)**
+El sistema fue desarrollado con una arquitectura cliente-servidor basada en:
 
-### ⚙️ Backend
-- **Spring Boot**
-- **Java**
-- **REST API**
+* Backend REST con Spring Boot
+* Base de datos PostgreSQL
+* Despliegue en VPS Linux
+* Proxy inverso con Nginx
+* Certificado SSL con Let's Encrypt
+* Contenerización con Docker
 
-### 🗄️ Base de datos
-- **PostgreSQL**
+El objetivo principal es digitalizar la gestión de socios y permitir el acceso seguro mediante autenticación.
 
 ---
 
-## 📁 Estructura del proyecto
+## 🛠️ Stack Tecnológico
+
+### Backend
+
+* Java 17
+* Spring Boot
+* Spring Security
+* JPA / Hibernate
+* Maven
+
+### Base de Datos
+
+* PostgreSQL
+
+### Infraestructura
+
+* Docker
+* Docker Compose
+* Nginx
+* Let's Encrypt (Certbot)
+* VPS Linux (Ubuntu)
+
+---
+
+## 🏗️ Arquitectura
+
+```
+Usuario
+   ↓
+HTTPS (SSL)
+   ↓
+Nginx (Reverse Proxy)
+   ↓
+Spring Boot (Docker container)
+   ↓
+PostgreSQL (Docker container)
+```
+
+* Nginx maneja:
+
+  * Redirección HTTP → HTTPS
+  * Certificados SSL
+  * Proxy hacia el backend
+
+* El backend corre como contenedor Docker.
+
+* La base de datos también corre como contenedor independiente.
+
+---
+
+## 🚀 Funcionalidades
+
+* ✅ Registro y autenticación de usuarios
+* ✅ Login con Spring Security
+* ✅ Gestión completa de socios (CRUD)
+* ✅ Persistencia en PostgreSQL
+* ✅ Despliegue en producción con HTTPS
+* ✅ Configuración con variables de entorno
+
+---
+
+## 📂 Estructura del Proyecto
+
+```
+clublibertad/
+│
+├── backend/
+│   ├── src/
+│   ├── pom.xml
+│   └── Dockerfile
+│
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## ⚙️ Configuración Local
+
+### 1️⃣ Clonar repositorio
 
 ```bash
-/ (raíz del repositorio)
-├── /front        # Aplicación web (React + Vite + TypeScript)
-├── /back         # API REST (Spring Boot)
-├── README.md     # Documento actual
-└── ...           # Otros archivos de configuración
+git clone https://github.com/usuario/clublibertad.git
+cd clublibertad
+```
 
-💡 Actualmente solo está implementada la carpeta front, el backend se integrará en etapas posteriores.
+---
 
-🎨 Diseño del Frontend
+### 2️⃣ Configurar variables de entorno
 
-El diseño fue realizado en Figma y exportado a código utilizando React + Vite con TypeScript.
-El prototipo busca ofrecer una interfaz moderna, intuitiva y adaptable (responsive), enfocada en la experiencia del usuario.
+En `application.properties`:
 
-👥 Equipo de desarrollo
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/clublibertad
+spring.datasource.username=postgres
+spring.datasource.password=tu_password
+spring.jpa.hibernate.ddl-auto=update
+```
 
-💻 Desarrollador Full Stack:	Lorenzo Esteban Marchione Revilla
-⚙️ Desarrollador Backend:	Renzo Hirschfeld
+---
 
-🧩 Objetivos principales
+### 3️⃣ Ejecutar backend
 
-Desarrollar una arquitectura monolítica con backend en Spring Boot y frontend separado en React.
+```bash
+mvn clean install
+mvn spring-boot:run
+```
 
-Implementar un sistema de autenticación con JWT.
+---
 
-Garantizar una experiencia fluida tipo SPA (Single Page Application).
+## 🐳 Despliegue con Docker
 
-Utilizar PostgreSQL como base de datos principal.
+### docker-compose.yml
 
-Mantener buenas prácticas de UI/UX y estructura escalable.
+Ejemplo simplificado:
 
-📧 Contacto
+```yaml
+services:
+  backend:
+    build: ./backend
+    container_name: cl_backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
 
-Lorenzo Esteban Marchione Revilla
-📩 lorenmarchione@gmail.com
+  db:
+    image: postgres:15
+    container_name: cl_db
+    environment:
+      POSTGRES_DB: clublibertad
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
-Renzo Hirschfeld
-📩 [correo aquí]
+volumes:
+  postgres_data:
+```
 
-🧱 Estado del proyecto
+---
 
-🟡 En desarrollo — actualmente se trabaja en la integración del diseño de Figma con React + Vite.
-Próximas etapas:
+### Levantar contenedores
 
-Implementar lógica de negocio en el backend.
+```bash
+docker compose up -d --build
+```
 
-Conectar el frontend con la API REST.
+Ver estado:
 
-Integrar base de datos PostgreSQL.
+```bash
+docker compose ps
+```
 
-Pruebas y despliegue.
+---
 
-⚡ Ejecución rápida (cuando ambos módulos estén listos)
-# Frontend
-cd front
-npm install
-npm run dev
+## 🌍 Configuración de Producción
 
-# Backend
-cd back
-./mvnw spring-boot:run
+### VPS
 
-🗂️ Notas
+Servidor Linux Ubuntu.
 
-Este repositorio está en constante evolución como parte del proceso académico.
-Cualquier contribución, sugerencia o revisión es bienvenida.
+### Nginx
+
+Archivo de configuración:
+
+```
+/etc/nginx/nginx.conf
+```
+
+Responsabilidades:
+
+* Redirección HTTP → HTTPS
+* Proxy hacia `localhost:8080`
+* Manejo de certificados SSL
+
+---
+
+### SSL
+
+Certificado emitido con:
+
+```
+certbot --nginx
+```
+
+Verificación de seguridad realizada con SSL Labs (calificación A+).
+
+---
+
+## 🔐 Seguridad
+
+* Spring Security configurado para autenticación.
+* Contraseñas cifradas.
+* Comunicación cifrada con HTTPS.
+* Acceso a base de datos restringido a contenedores internos.
+
+---
+
+## 🔄 Actualización del Sistema en Producción
+
+### Subir nuevo JAR
+
+Desde máquina local:
+
+```bash
+scp target/app.jar usuario@ip-servidor:/home/clublibertad/
+```
+
+Luego en el servidor:
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+---
+
+## 📊 Base de Datos
+
+Motor: PostgreSQL
+Persistencia mediante volumen Docker.
+
+Para acceder:
+
+```bash
+docker exec -it cl_db psql -U postgres
+```
+
+---
+
+## 👨‍💻 Autor
+
+Lorenzo Marchione
+Técnico en Programación
+Proyecto de Práctica Profesionalizante
+
+---
+
+## 📄 Licencia
+
+Proyecto desarrollado con fines educativos y administrativos para uso interno del Club Libertad.
+
+---
