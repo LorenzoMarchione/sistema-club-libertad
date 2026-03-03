@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,8 +7,16 @@ import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
-import { Mail, Send, Clock, CheckCircle2 } from 'lucide-react';
+import { Mail, Send, Clock, CheckCircle2, AlertTriangle} from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from './ui/dialog';
 
 interface Notificacion {
   id: string;
@@ -25,6 +33,13 @@ interface NotificacionesModuleProps {
 }
 
 export function NotificacionesModule({ userRole }: NotificacionesModuleProps) {
+
+  const[showDevAlert, setShowDevAlert] = useState(false);
+
+  useEffect(() => {
+    setShowDevAlert(true);
+  }, []);
+
   const placeholderMessage = 'Este módulo no es funcional y solo está como placeholder para futuras funciones.';
   const [historial, setHistorial] = useState<Notificacion[]>([
     {
@@ -148,7 +163,9 @@ Club Deportivo`,
     .reduce((sum, g) => sum + g.cantidad, 0);
 
   return (
+
     <div className="space-y-6">
+
       <div className="text-sm text-red-600 font-medium">
         {placeholderMessage}
       </div>
@@ -322,6 +339,34 @@ Club Deportivo`,
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de Advertencia de Desarrollo */}
+      <Dialog open={showDevAlert} onOpenChange={setShowDevAlert}>
+        <DialogContent className="sm:max-w-[425px] border-amber-200">
+          <DialogHeader>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 bg-amber-100 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
+              </div>
+              <DialogTitle className="text-amber-800">Módulo en Desarrollo</DialogTitle>
+            </div>
+            <DialogDescription className="text-base text-gray-600 pt-2">
+              Esta sección del sistema aún se encuentra en **fase de desarrollo**.
+              <br /><br />
+              Las interfaces son representativas y la funcionalidad de envío de correos electrónicos **no está operativa** en este momento.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button 
+              className="bg-amber-600 hover:bg-amber-700 text-white w-full"
+              onClick={() => setShowDevAlert(false)}
+            >
+              Entendido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
