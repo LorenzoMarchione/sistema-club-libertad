@@ -12,8 +12,6 @@ import com.club_libertad.repositories.CuotaRepository;
 import com.club_libertad.repositories.PagoRepository;
 import com.club_libertad.repositories.PromocionRepository;
 import com.club_libertad.models.Registro;
-import com.club_libertad.models.Inscripcion;
-import com.club_libertad.models.Cuota;
 import com.club_libertad.models.Promocion;
 
 import org.springframework.stereotype.Service;
@@ -93,17 +91,13 @@ public class PersonaService {
                 return Optional.empty();
             }
         }
-        Persona p = personaRepository.save(personaCreate);
         
         // Asignar promociones si vienen en el DTO
-        if(personaTransfer.getPromocionesIds() != null && !personaTransfer.getPromocionesIds().isEmpty()) {
-            for(Long promoId : personaTransfer.getPromocionesIds()) {
-                Optional<Promocion> promoOpt = promocionRepository.findById(promoId);
-                if(promoOpt.isPresent()) {
-                    p.getPromociones().add(promoOpt.get());
-                }
+        if(personaTransfer.getPromocionId() != null) {
+            Optional<Promocion> promoOpt = promocionRepository.findById(personaTransfer.getPromocionId());
+            if(promoOpt.isPresent()) {
+                personaCreate.setPromocion(promoOpt.get());
             }
-            personaRepository.save(p);
         }
 
         // Crear registro inmutable asociado a la creación de la persona
@@ -116,33 +110,58 @@ public class PersonaService {
             registroRepository.save(registro);
         }
 
+        Persona p = personaRepository.save(personaCreate);
+
         return Optional.of(p.getId());
     }
 
     @Transactional
-    public boolean cambiarEstadoPersona(Long id){
+    public boolean cambiarEstadoPersona(Long id, String observacionBaja){
         boolean b = false;
         Optional<Persona> persona = personaRepository.findById(id);
         if(persona.isPresent()){
             persona.get().setActivo(!persona.get().getActivo());
-            b = true;
+            String dni = persona.get().getDni();
+            Optional<Registro> registro = registroRepository.findByDni(dni);
+            if(registro.isPresent()){
+                if(registro.get().getFechaBaja() == null){
+                    registro.get().setFechaBaja(ZonedDateTime.now());
+                    if(observacionBaja != null && !observacionBaja.trim().isEmpty()){
+                    registro.get().setObservacionBaja(observacionBaja);
+                    }
+                }
+                else{
+                    registro.get().setFechaBaja(null);
+                    registro.get().setObservacionBaja(null);
+                }
+                b = true;
+            }
         }
         return b;
     }
 
     @Transactional
-    public boolean updatePersonaParcial(Long id, Persona personaUpdate){
+    public boolean updatePersonaParcial(Long id, PersonaDTO personaUpdate){
         boolean b = false;
         Optional<Persona> persona = getPersonaById(id);
         if(persona.isPresent()){
             if(personaUpdate.getNombre() != null) persona.get().setNombre(personaUpdate.getNombre());
             if(personaUpdate.getApellido() != null) persona.get().setApellido(personaUpdate.getApellido());
+            if(personaUpdate.getFechaNacimiento() != null) persona.get().setFechaNacimiento(personaUpdate.getFechaNacimiento());
             if(personaUpdate.getEmail() != null) persona.get().setEmail(personaUpdate.getEmail());
             if(personaUpdate.getTelefono() != null) persona.get().setTelefono(personaUpdate.getTelefono());
             if(personaUpdate.getDireccion() != null) persona.get().setDireccion(personaUpdate.getDireccion());
             if(personaUpdate.getCategoria() != null) persona.get().setCategoria(personaUpdate.getCategoria());
-            if(personaUpdate.getSocioResponsable() != null) persona.get().setSocioResponsable(personaUpdate.getSocioResponsable());
-            if(personaUpdate.getPromociones() != null) persona.get().setPromociones(personaUpdate.getPromociones());
+            if(personaUpdate.getSocioResponsableId() != null){
+                Persona p = new Persona();
+                p.setId(personaUpdate.getSocioResponsableId());
+                persona.get().setSocioResponsable(p);
+            } 
+            if(personaUpdate.getPromocionId() != null){
+                Promocion p = new Promocion();
+                p.setId(personaUpdate.getPromocionId());
+                persona.get().setPromocion(p);
+            }
             b = true;
         }
         return b;
@@ -183,7 +202,7 @@ public class PersonaService {
         if(personaRepository.existsById(id)){
             Optional<Persona> persona = personaRepository.findById(id);
             if(persona.isPresent()){
-                // 0. Actualizar el registro con la fecha de baja y observación
+                // Actualizar el registro con la fecha de baja y observación
                 String dni = persona.get().getDni();
                 Optional<Registro> registro = registroRepository.findByDni(dni);
                 if(registro.isPresent()) {
@@ -194,21 +213,21 @@ public class PersonaService {
                     registroRepository.save(registro.get());
                 }
                 
-                // 1. Eliminar todas las cuotas asociadas a esta persona
+                // Eliminar todas las cuotas asociadas a esta persona
                 cuotaRepository.deleteByPersonaId_Id(id);
                 
-                // 2. Eliminar todas las inscripciones de esta persona
+                // Eliminar todas las inscripciones de esta persona
                 inscripcionRepository.deleteByPersonaId_Id(id);
 
-                // 2.1 Eliminar todos los pagos asociados a esta persona
+                // Eliminar todos los pagos asociados a esta persona
                 pagoRepository.deleteBySocioId_Id(id);
                 
-                // 3. Desasociar promociones y deportes (relaciones many-to-many)
-                persona.get().getPromociones().clear();
+                // Desasociar promociones y deportes (relaciones many-to-many)
+                persona.get().setPromocion(null);
                 persona.get().getDeportes().clear();
                 personaRepository.save(persona.get());
                 
-                // 4. Eliminar referencias como socioResponsable de otras personas
+                // Eliminar referencias como socioResponsable de otras personas
                 List<Persona> personasDependientes = personaRepository.findAll().stream()
                     .filter(p -> p.getSocioResponsable() != null && p.getSocioResponsable().getId().equals(id))
                     .toList();

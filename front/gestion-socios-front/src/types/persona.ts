@@ -7,15 +7,16 @@ export interface Persona {
   dni: string;
   direccion: string | null;
   telefono: string | null;
-  correo: string | null;
+  email: string | null;
   categoria: CategoriaBackend;
-  edad: number;
+  edad?: number;
   fechaNacimiento: string; // ISO
   socioResponsable?: Persona; // "Nombre Apellido (DNI: XXXXXXXX)"
   socioResponsableId?: number;
   socioResponsableDni?: string;
-  deportes: string[]; // reservado para futuro
+  deportes?: string[]; // reservado para futuro
   deportesIds?: number[]; // IDs de los deportes asociados
-  estado: 'activo' | 'inactivo';
+  activo?: boolean;
   fechaRegistro: string; // ISO
+  promocionId?: number;
 }

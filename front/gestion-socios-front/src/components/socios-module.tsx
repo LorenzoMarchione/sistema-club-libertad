@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
-import { Edit, Trash2, Search, UserPlus, History } from 'lucide-react';
+import { Edit, Trash2, Search, UserPlus, History, ArrowUpDown, SquareArrowDown, SquareArrowRight} from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import personaService from '../services/personaService';
@@ -56,6 +56,7 @@ const calcularEdad = (fechaNacimiento: string | null): number => {
   if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
     edad--;
   }
+  
   return edad;
 };
 
@@ -71,7 +72,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [filterDeporte, setFilterDeporte] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSocio, setEditingSocio] = useState<Socio | null>(null);
-  const [selectedPromociones, setSelectedPromociones] = useState<number[]>([]);
+  const [selectedPromocionId, setSelectedPromocionId] = useState<Number | null>(null);
   const [formData, setFormData] = useState<FormSocio>({
     categoria: 'SOCIO',
     estado: 'activo',
@@ -86,11 +87,13 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const [registroDuplicado, setRegistroDuplicado] = useState<Registro | null>(null);
   const [pendingSocioData, setPendingSocioData] = useState<any | null>(null);
   const [isRegistroDialogOpen, setIsRegistroDialogOpen] = useState(false);
-  
+  const [socioToAltaBaja, setSocioToAltaBaja] = useState<Socio | null>(null);
+  const [isAltaBajaDialogOpen, setIsAltaBajaDialogOpen] = useState(false);
   const [historialSearchTerm, setHistorialSearchTerm] = useState('');
   const [historialFilter, setHistorialFilter] = useState<'todos' | 'activos' | 'inactivos'>('todos');
+  const [activeFilter, setActiveFilter] = useState<'activos' | 'inactivos'>('activos');
   const [activeTab, setActiveTab] = useState('socios');
-  const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean; responsableNombre: boolean; responsableApellido: boolean; responsableDni: boolean }>({
+  const [formErrors, setFormErrors] = useState<{ nombre: boolean; apellido: boolean; dni: boolean; fechaNacimiento: boolean; responsableNombre: boolean; responsableApellido: boolean; responsableDni: boolean; telefono: boolean; email:boolean }>({
     nombre: false,
     apellido: false,
     dni: false,
@@ -98,6 +101,8 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     responsableNombre: false,
     responsableApellido: false,
     responsableDni: false,
+    telefono: false,
+    email: false,
   });
   const [fechaNacimientoParts, setFechaNacimientoParts] = useState<{ day: string; month: string; year: string }>({
     day: '',
@@ -112,6 +117,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   }));
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 90 }, (_, i) => String(currentYear - i));
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const DNI_REGEX = /^\d{7,8}$/; // DNI argentino (7 u 8 números)
+  const TEL_REGEX = /^\+?[0-9]{10,15}$/;
 
   const updateFechaNacimiento = (day: string, month: string, year: string) => {
     setFechaNacimientoParts({ day, month, year });
@@ -120,8 +128,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       setFormData(prev => ({ ...prev, fechaNacimiento: composed }));
       setFormErrors(prev => ({ ...prev, fechaNacimiento: false }));
     } else {
-      setFormData(prev => ({ ...prev, fechaNacimiento: '' }));
-      setFormErrors(prev => ({ ...prev, fechaNacimiento: true }));
+      setFormData(prev => ({ ...prev, fechaNacimiento: null }));
     }
   };
 
@@ -171,7 +178,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
           ? `${persona.socioResponsable.nombre} ${persona.socioResponsable.apellido} (DNI: ${persona.socioResponsable.dni})`
           : responsable ? `${responsable.nombre} ${responsable.apellido} (DNI: ${responsable.dni})` : undefined,
         responsableDni: responsable?.dni,
-        estado: persona.estado,
+        estado: persona.activo ? 'activo' : 'inactivo',
         //=========================================================================
         // Asegurarse de que deportes sea un array SACAR CUANDO EL BACKEND LO TENGA
         deportes: Array.isArray(persona.deportes) ? persona.deportes : [], // <-- default
@@ -221,6 +228,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
 
   // Filtros
   const filteredSocios = socios.filter(socio => {
+    const matchesActive = 
+    (activeFilter === 'activos' && socio.activo) || 
+    (activeFilter === 'inactivos' && !socio.activo);
+
     const matchesSearch = 
       socio.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       socio.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,7 +245,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     const deportesNombres = getDeportesNombres(socio.deportesIds);
     const matchesDeporte = filterDeporte === 'all' || deportesNombres.includes(filterDeporte);
     
-    return matchesSearch && matchesCategoria && matchesDeporte;
+    return matchesActive && matchesSearch && matchesCategoria && matchesDeporte;
   });
 
   const filteredHistorial = historialRegistros
@@ -259,7 +270,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
   const handleOpenDialog = (socio?: Socio) => {
     if (socio) {
       setEditingSocio(socio);
-      setSelectedPromociones(socio.promocionesIds || []);
+      setSelectedPromocionId(socio.promocionId || null);
       const responsable = socio.socioResponsable || (socio.socioResponsableId ? socios.find(s => Number(s.id) === Number(socio.socioResponsableId)) : undefined);
       setFormData({
         nombre: socio.nombre,
@@ -268,7 +279,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         fechaNacimiento: socio.fechaNacimiento,
         direccion: socio.direccion,
         telefono: socio.telefono,
-        correo: socio.correo,
+        correo: socio.email,
         responsableNombre: responsable?.nombre || '',
         responsableApellido: responsable?.apellido || '',
         responsableDni: responsable?.dni || '',
@@ -284,7 +295,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       });
     } else {
       setEditingSocio(null);
-      setSelectedPromociones([]);
+      setSelectedPromocionId(null);
       setFormData({
         categoria: 'SOCIO',
         estado: 'activo',
@@ -294,7 +305,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       });
       setFechaNacimientoParts({ day: '', month: '', year: '' });
     }
-    setFormErrors({ nombre: false, apellido: false, dni: false, fechaNacimiento: false, responsableNombre: false, responsableApellido: false, responsableDni: false });
+    setFormErrors({ nombre: false, apellido: false, dni: false, fechaNacimiento: false, responsableNombre: false, responsableApellido: false, responsableDni: false, telefono: false, email: false });
     setIsDialogOpen(true);
   };
 
@@ -304,7 +315,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       nombre: !(formData.nombre && formData.nombre.trim().length > 0),
       apellido: !(formData.apellido && formData.apellido.trim().length > 0),
       dni: !(formData.dni && formData.dni.trim().length > 0),
-      fechaNacimiento: !(fechaNacimientoParts.day && fechaNacimientoParts.month && fechaNacimientoParts.year),
+      fechaNacimiento: false,
       responsableNombre: formData.categoria === 'JUGADOR' ? !(formData.responsableNombre && formData.responsableNombre.trim().length > 0) : false,
       responsableApellido: formData.categoria === 'JUGADOR' ? !(formData.responsableApellido && formData.responsableApellido.trim().length > 0) : false,
       responsableDni: formData.categoria === 'JUGADOR' ? !(formData.responsableDni && formData.responsableDni.trim().length > 0) : false,
@@ -320,23 +331,28 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       nombre: formData.nombre || '',
       apellido: formData.apellido || '',
       dni: formData.dni || '',
-      fechaNacimiento: formData.fechaNacimiento || '',
+      fechaNacimiento: formData.fechaNacimiento || null,
       email: formData.correo || null,
       telefono: formData.telefono || null,
       direccion: formData.direccion || null,
       categoria: formData.categoria,
-      promocionesIds: selectedPromociones,
+      promocionId: selectedPromocionId || null,
       ...(formData.categoria === 'JUGADOR' && formData.responsableDni ? { socioResponsableDni: formData.responsableDni } : {}),
     };
-
+    
     try {
-
       if (editingSocio) {
-        await personaService.update(parseInt(editingSocio.id), socioData);
-        toast.success('Socio actualizado correctamente');
+        toast.promise(personaService.update(parseInt(editingSocio.id), socioData), {
+          loading: 'Actualizando socio...',
+          success: '¡Socio actualizado correctamente!',
+          error: 'No se pudo actualizar al socio',
+        });    
       } else {
-        await personaService.create(socioData);
-        toast.success('Socio registrado correctamente');
+        toast.promise(personaService.create(socioData), {
+          loading: 'Registrando nuevo socio...',
+          success: '¡Socio registrado correctamente!',
+          error: 'No se pudo regitrar al socio',
+        });
       }
 
       // Recargar la lista
@@ -433,6 +449,45 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     }
   };
 
+  const handleAltaBaja = (id: string) => {
+    const socioADarAltaBaja = socios.find(s => s.id === id);
+    if(socioADarAltaBaja){
+        setSocioToAltaBaja(socioADarAltaBaja);
+        setIsAltaBajaDialogOpen(true);
+    }
+  }
+
+  const handleConfirmAltaBaja = async () => {
+    if(socioToAltaBaja){
+      try{
+        await personaService.toggleActive(parseInt(socioToAltaBaja.id), observacionBaja || undefined);
+
+        // Buscamos al socio en la lista y mapeamos el array
+        const sociosActualizados = socios.map(s => {
+          if (s.id === socioToAltaBaja.id) {
+            // Retornamos el socio con el estado invertido
+            return { ...s, activo: !s.activo }; 
+          }
+          return s;
+        });
+        setSocios(sociosActualizados);
+
+        setObservacionBaja('');
+        setIsAltaBajaDialogOpen(false);
+        setSocioToAltaBaja(null);
+        if(socioToAltaBaja.activo){
+          toast.warning('Socio dado de BAJA correctamente');
+        }
+        else{
+          toast.success('Socio dado de ALTA correctamente');
+        }
+      } catch (error) {
+        console.error('Error al dar Alta/Baja del Socio');
+        toast.error('Error al dar Alta/Baja del Socio');
+      }
+    }
+  }
+
   if (loading) return <div>Cargando socios...</div>;
   if (error) return <div>Error: {error}</div>;
 
@@ -498,24 +553,28 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       id="dni"
                       value={formData.dni || ''}
                       onChange={(e) => {
-                        setFormData({ ...formData, dni: e.target.value });
-                        if (e.target.value.trim().length > 0) setFormErrors(prev => ({ ...prev, dni: false }));
-                      }}
-                      className={formErrors.dni ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                      required
+                        const val = e.target.value;
+                        setFormData({ ...formData, dni: val });
+                        setFormErrors(prev => ({ 
+                        ...prev, 
+                        dni: val.trim().length === 0 || !DNI_REGEX.test(val) 
+                        }));
+                        }}
+                        className={formErrors.dni ? 'border-red-500' : ''}
                     />
                     {formErrors.dni && (
-                      <p className="text-xs text-red-600">Completa el DNI</p>
+                      <p className="text-xs text-red-600 mt-1">
+                      {formData.dni?.length === 0 ? 'Completa el DNI' : 'DNI inválido (debe tener 7 u 8 números)'}
+                    </p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label>Fecha de Nacimiento *</Label>
+                    <Label>Fecha de Nacimiento</Label>
                     <div className="grid grid-cols-3 gap-2">
                       <Select
                         value={fechaNacimientoParts.day}
                         onValueChange={(value) => updateFechaNacimiento(value, fechaNacimientoParts.month, fechaNacimientoParts.year)}
-                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                        required
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}                        
                       >
                         <SelectTrigger aria-label="Día">
                           <SelectValue placeholder="Día" />
@@ -530,8 +589,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       <Select
                         value={fechaNacimientoParts.month}
                         onValueChange={(value) => updateFechaNacimiento(fechaNacimientoParts.day, value, fechaNacimientoParts.year)}
-                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                        required
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''} 
                       >
                         <SelectTrigger aria-label="Mes">
                           <SelectValue placeholder="Mes" />
@@ -546,8 +604,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       <Select
                         value={fechaNacimientoParts.year}
                         onValueChange={(value) => updateFechaNacimiento(fechaNacimientoParts.day, fechaNacimientoParts.month, value)}
-                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                        required
+                        className={formErrors.fechaNacimiento ? 'border-red-500 focus-visible:ring-red-500' : ''}                     
                       >
                         <SelectTrigger aria-label="Año">
                           <SelectValue placeholder="Año" />
@@ -564,32 +621,53 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="direccion">Dirección *</Label>
+                    <Label htmlFor="direccion">Dirección</Label>
                     <Input
                       id="direccion"
                       value={formData.direccion || ''}
-                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                      required
+                      onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}                    
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="telefono">Teléfono *</Label>
+                    <Label htmlFor="telefono">Teléfono</Label>
                     <Input
                       id="telefono"
                       value={formData.telefono || ''}
-                      onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                      required
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, telefono: val });
+                        // El teléfono suele ser opcional, validamos solo si hay algo escrito
+                        setFormErrors(prev => ({ 
+                        ...prev, 
+                        telefono: val.length > 0 && !TEL_REGEX.test(val) 
+                        }));
+                      }}
+                      className={formErrors.telefono ? 'border-red-500' : ''}                   
                     />
+                    {formErrors.telefono && (
+                    <p className="text-xs text-red-600 mt-1">Formato de teléfono inválido (solo números (entre 10 y 15))</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="correo">Correo Electrónico *</Label>
+                    <Label htmlFor="correo">Correo Electrónico</Label>
                     <Input
                       id="correo"
                       type="email"
                       value={formData.correo || ''}
-                      onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
-                      required
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, correo: val });
+                        // Validamos solo si hay algo escrito
+                        setFormErrors(prev => ({ 
+                        ...prev, 
+                        email: val.length > 0 && !EMAIL_REGEX.test(val) 
+                        }));
+                      }}
+                      className={formErrors.email ? 'border-red-500' : ''}
                     />
+                    {formErrors.email && (
+                      <p className="text-xs text-red-600 mt-1">Ingresa un correo electrónico válido</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="categoria">Categoría *</Label>
@@ -680,18 +758,14 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       style={{ maxHeight: promociones.filter(p => p.activo !== false).length > 4 ? 200 : undefined }}
                     >
                       {promociones.filter(p => p.activo !== false).map(promo => {
-                        const checked = selectedPromociones.includes(Number(promo.id));
+                        const isSelected = selectedPromocionId === Number(promo.id);
                         return (
                           <div key={promo.id} className="flex items-start gap-3 p-3">
                             <Checkbox
                               id={`promo-${promo.id}`}
-                              checked={checked}
+                              checked={isSelected}
                               onCheckedChange={(val) => {
-                                if (val) {
-                                  setSelectedPromociones(prev => [...prev, Number(promo.id)]);
-                                } else {
-                                  setSelectedPromociones(prev => prev.filter(id => id !== Number(promo.id)));
-                                }
+                                setSelectedPromocionId(val ? Number(promo.id) : null);
                               }}
                             />
                             <label htmlFor={`promo-${promo.id}`} className="flex-1 cursor-pointer">
@@ -699,6 +773,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                               {promo.descripcion && (
                                 <div className="text-sm text-gray-500">{promo.descripcion}</div>
                               )}
+                              <div className="text-xs font-bold text-blue-600">
+                                {promo.descuento}{promo.tipoDescuento === 'PORCENTAJE' ? '%' : '$'} de descuento
+                              </div>
                             </label>
                           </div>
                         );
@@ -707,9 +784,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                         <div className="p-3 text-sm text-gray-500">No hay promociones activas</div>
                       )}
                     </div>
-                    {selectedPromociones.length > 0 && (
+                    {selectedPromocionId && (
                       <p className="text-sm text-gray-600">
-                        {selectedPromociones.length} promoción(es) seleccionada(s)
+                        Se aplicará esta promoción al socio.
                       </p>
                     )}
                   </div>
@@ -791,6 +868,49 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                 </div>
               </DialogContent>
             </Dialog>
+            {/* Dialog de Confirmación de Alta/Baja */}
+            <Dialog open={isAltaBajaDialogOpen} onOpenChange={setIsAltaBajaDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Dar Alta/Baja Socio</DialogTitle>
+                  <DialogDescription>
+                    ¿Estás seguro de que deseas dar de {' '}
+                    <span style={{ color: socioToAltaBaja?.activo ? 'orange' : 'green', fontWeight: 'bold' }}>
+                      {socioToAltaBaja?.activo ? 'BAJA' : 'ALTA'}
+                    </span>
+                    {' '} a {socioToAltaBaja?.apellido}, {socioToAltaBaja?.nombre}?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {socioToAltaBaja?.activo && 
+                  (<div>
+                    <Label htmlFor="observacionAltaBaja">Observación de Baja (opcional)</Label>
+                    <Input
+                      id="observacionBaja"
+                      placeholder="Ej: Traslado a otra ciudad, cambio de trabajo..."
+                      value={observacionBaja}
+                      onChange={(e) => setObservacionBaja(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>)}
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsAltaBajaDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button 
+                      style={{ 
+                        backgroundColor: socioToAltaBaja?.activo ? '#f97316' : '#16a34a', 
+                        color: 'white',
+                        display: 'inline-flex' 
+                      }}
+                      onClick={handleConfirmAltaBaja}
+                    >
+                      {socioToAltaBaja?.activo ? 'Confirmar Baja' : 'Confirmar Alta'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
         <CardContent>
@@ -809,7 +929,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
             {/* Tab de Socios */}
             <TabsContent value="socios" className="space-y-4">
               {/* Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="relative sm:col-span-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
@@ -843,6 +963,15 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={activeFilter} onValueChange={(v) => setActiveFilter(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar filtro" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="activos">Activos</SelectItem>
+                      <SelectItem value="inactivos">Inactivos</SelectItem>
+                    </SelectContent>
+                  </Select>
               </div>
 
               {/* Table */}
@@ -889,11 +1018,15 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           <TableCell>
                             <Badge variant="outline">{getCategoriaLabel(socio.categoria)}</Badge>
                           </TableCell>
-                          <TableCell>{calcularEdad(socio.fechaNacimiento)} años</TableCell>
+                          <TableCell>
+                          {calcularEdad(socio?.fechaNacimiento) === 0 
+                          ? "Sin edad" 
+                          : `${calcularEdad(socio?.fechaNacimiento)} años`}
+                          </TableCell>
                           <TableCell>
                             <div className="text-sm">
-                              <div>{socio.telefono}</div>
-                              <div className="text-gray-500">{socio.correo}</div>
+                              <div>{(socio?.telefono || "Sin teléfono")}</div>
+                              <div className="text-gray-500">{socio?.email || "Sin email"}</div>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -914,6 +1047,13 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleAltaBaja(socio.id)}
+                              >
+                                <ArrowUpDown color="#ea580c" className="w-4 h-4"/>
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1000,6 +1140,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                       </TableRow>
                     ) : (
                       filteredHistorial.map((registro, index) => (
+                        <Fragment>
                         <TableRow key={`registro-${registro.id}`}>
                           <TableCell className="text-center">
                             {registro.fechaBaja && (
@@ -1007,7 +1148,7 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                                 onClick={() => setExpandedRegistroId(expandedRegistroId === registro.id ? null : registro.id)}
                                 className="text-blue-600 hover:text-blue-800 cursor-pointer text-lg leading-none"
                               >
-                                {expandedRegistroId === registro.id ? '▼' : '▶'}
+                                {expandedRegistroId === registro.id ? <SquareArrowDown/> : <SquareArrowRight/>}
                               </button>
                             )}
                           </TableCell>
@@ -1019,20 +1160,19 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                             {registro.fechaBaja ? formatDate(registro.fechaBaja) : '-'}
                           </TableCell>
                         </TableRow>
+                        {/* Filas expandidas con observación de baja */}
+                        {expandedRegistroId === registro.id && registro.fechaBaja && (
+                          <TableRow key={`expanded-${registro.id}`} className="bg-gray-50">
+                            <TableCell colSpan={6} className="py-4">
+                              <div className="pl-8 border-l-2 border-blue-400">
+                                <p className="text-sm font-semibold text-gray-700 mb-2">Razón de Baja:</p>
+                                <p className="text-sm text-gray-600 italic">{registro?.observacionBaja || "Sin especificar"}</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        </Fragment>
                       ))
-                    )}
-                    {/* Filas expandidas con observación de baja */}
-                    {filteredHistorial.map((registro) => 
-                      expandedRegistroId === registro.id && registro.fechaBaja && registro.observacionBaja ? (
-                        <TableRow key={`expanded-${registro.id}`} className="bg-gray-50">
-                          <TableCell colSpan={6} className="py-4">
-                            <div className="pl-8 border-l-2 border-blue-400">
-                              <p className="text-sm font-semibold text-gray-700 mb-2">Razón de Baja:</p>
-                              <p className="text-sm text-gray-600 italic">{registro.observacionBaja}</p>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ) : null
                     )}
                   </TableBody>
                 </Table>

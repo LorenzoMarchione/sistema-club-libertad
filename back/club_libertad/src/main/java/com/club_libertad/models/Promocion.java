@@ -9,7 +9,6 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -41,8 +40,8 @@ public class Promocion {
     private Boolean activo = true;
     
     @JsonIgnore
-    @ManyToMany(mappedBy = "promociones")
-    private Set<Persona> personas = new HashSet<>();
+    @OneToMany(mappedBy = "promocion")
+    private Set<Persona> personas;
 
     @JsonProperty("personasIds")
     public List<Long> getPersonasIds() {

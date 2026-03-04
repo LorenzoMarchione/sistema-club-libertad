@@ -19,7 +19,6 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 public class CuotaService {
@@ -36,22 +35,21 @@ public class CuotaService {
     }
 
     // Método auxiliar para calcular monto con descuentos de promociones
-    private BigDecimal aplicarDescuentosPromociones(BigDecimal montoOriginal, Set<Promocion> promociones) {
-        if (promociones == null || promociones.isEmpty()) {
+    private BigDecimal aplicarDescuentoPromocion(BigDecimal montoOriginal, Promocion promocion) {
+        if (promocion == null) {
             return montoOriginal;
         }
         
         BigDecimal descuentoTotal = BigDecimal.ZERO;
-        for (Promocion promo : promociones) {
-            if (promo.getActivo() != null && promo.getActivo()) {
-                if (promo.getTipoDescuento().name().equals("PORCENTAJE")) {
-                    BigDecimal descuentoPorcentual = montoOriginal.multiply(promo.getDescuento()).divide(BigDecimal.valueOf(100));
-                    descuentoTotal = descuentoTotal.add(descuentoPorcentual);
-                } else { // MONTO_FIJO
-                    descuentoTotal = descuentoTotal.add(promo.getDescuento());
-                }
+        if (promocion.getActivo() != null && promocion.getActivo()) {
+            if (promocion.getTipoDescuento().name().equals("PORCENTAJE")) {
+                BigDecimal descuentoPorcentual = montoOriginal.multiply(promocion.getDescuento()).divide(BigDecimal.valueOf(100));
+                descuentoTotal = descuentoTotal.add(descuentoPorcentual);
+            } else { // MONTO_FIJO
+                descuentoTotal = descuentoTotal.add(promocion.getDescuento());
             }
         }
+        
         
         BigDecimal montoFinal = montoOriginal.subtract(descuentoTotal);
         return montoFinal.compareTo(BigDecimal.ZERO) > 0 ? montoFinal : BigDecimal.ZERO;
@@ -82,8 +80,8 @@ public class CuotaService {
         BigDecimal cuotaSocial = deporteExisting.getCuotaSocial() != null ? deporteExisting.getCuotaSocial() : BigDecimal.ZERO;
         BigDecimal montoBase = cuotaEntrenador.add(cuotaSeguro).add(cuotaSocial);
 
-        Set<Promocion> promociones = personaExisting.getPromociones();
-        BigDecimal montoFinal = aplicarDescuentosPromociones(montoBase, promociones);
+        Promocion promocion = personaExisting.getPromocion();
+        BigDecimal montoFinal = aplicarDescuentoPromocion(montoBase, promocion);
 
         cuotaCreate.setCuotaEntrenador(cuotaEntrenador);
         cuotaCreate.setCuotaSeguro(cuotaSeguro);
@@ -137,8 +135,8 @@ public class CuotaService {
                 BigDecimal cuotaSeguro = inscripcion.getDeporteId().getCuotaSeguro() != null ? inscripcion.getDeporteId().getCuotaSeguro() : BigDecimal.ZERO;
                 BigDecimal cuotaSocial = inscripcion.getDeporteId().getCuotaSocial() != null ? inscripcion.getDeporteId().getCuotaSocial() : BigDecimal.ZERO;
                 BigDecimal montoBase = cuotaEntrenador.add(cuotaSeguro).add(cuotaSocial);
-                Set<Promocion> promociones = inscripcion.getPersonaId().getPromociones();
-                BigDecimal montoFinal = aplicarDescuentosPromociones(montoBase, promociones);
+                Promocion promocion = inscripcion.getPersonaId().getPromocion();
+                BigDecimal montoFinal = aplicarDescuentoPromocion(montoBase, promocion);
                 nuevaCuota.setCuotaEntrenador(cuotaEntrenador);
                 nuevaCuota.setCuotaSeguro(cuotaSeguro);
                 nuevaCuota.setCuotaSocial(cuotaSocial);
