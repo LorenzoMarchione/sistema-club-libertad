@@ -16,10 +16,15 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                    .allowedOrigins("http://localhost:5173", "http://localhost:3000")
+                    .allowedOrigins(
+                        "http://localhost:5173",
+                        "http://localhost:3000",
+                        "https://sociosclublibertad.online",
+                        "https://www.sociosclublibertad.online"
+                    )
                         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
-                        .allowCredentials(false) // true si usas cookies/auth
+                        .allowCredentials(true)
                         .maxAge(3600);
             }
         };

@@ -4,6 +4,7 @@ import com.club_libertad.enums.CategoriaPersona;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.Pattern;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -19,6 +20,7 @@ public class PersonaDTO {
         message = "El DNI debe tener entre 7 y 8 números, sin puntos ni espacios"
     )
     public String dni;
+    @JsonFormat(pattern = "yyyy-MM-dd")
     public LocalDate fechaNacimiento;
     @Pattern(
         regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",

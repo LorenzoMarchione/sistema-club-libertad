@@ -46,17 +46,23 @@ interface SociosModuleProps {
   userRole: 'admin' | 'secretario';
 }
 
-// Calcula la edad a partir de la fecha de nacimiento
-const calcularEdad = (fechaNacimiento: string | null): number => {
+// Calcula la edad a partir de la fecha de nacimiento (recalculo en cada render)
+const calcularEdad = (fechaNacimiento?: string | null): number => {
   if (!fechaNacimiento) return 0;
-  const hoy = new Date();
-  const nacimiento = new Date(fechaNacimiento);
-  let edad = hoy.getFullYear() - nacimiento.getFullYear();
-  const mes = hoy.getMonth() - nacimiento.getMonth();
-  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+
+  const today = new Date();
+  const datePart = fechaNacimiento.split('T')[0] || '';
+  const parts = datePart.split('-').map(Number);
+  const nacimiento = parts.length === 3
+    ? new Date(parts[0], parts[1] - 1, parts[2])
+    : new Date(fechaNacimiento);
+
+  let edad = today.getFullYear() - nacimiento.getFullYear();
+  const mes = today.getMonth() - nacimiento.getMonth();
+  if (mes < 0 || (mes === 0 && today.getDate() < nacimiento.getDate())) {
     edad--;
   }
-  
+
   return edad;
 };
 
@@ -279,7 +285,8 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         fechaNacimiento: socio.fechaNacimiento,
         direccion: socio.direccion,
         telefono: socio.telefono,
-        correo: socio.email,
+        correo: socio.email && socio.email !== '-' ? socio.email : null,
+        telefono: socio.telefono && socio.telefono !== '-' ? socio.telefono : null,
         responsableNombre: responsable?.nombre || '',
         responsableApellido: responsable?.apellido || '',
         responsableDni: responsable?.dni || '',
@@ -287,12 +294,17 @@ export function SociosModule({ userRole }: SociosModuleProps) {
         estado: socio.estado,
       });
 
-      const fecha = socio.fechaNacimiento ? new Date(socio.fechaNacimiento) : null;
-      setFechaNacimientoParts({
-        day: fecha ? String(fecha.getDate()).padStart(2, '0') : '',
-        month: fecha ? String(fecha.getMonth() + 1).padStart(2, '0') : '',
-        year: fecha ? String(fecha.getFullYear()) : '',
-      });
+      if (socio.fechaNacimiento) {
+        const datePart = socio.fechaNacimiento.split('T')[0] || '';
+        const parts = datePart.split('-');
+        setFechaNacimientoParts({
+          year: parts[0] || '',
+          month: parts[1] || '',
+          day: parts[2] || '',
+        });
+      } else {
+        setFechaNacimientoParts({ day: '', month: '', year: '' });
+      }
     } else {
       setEditingSocio(null);
       setSelectedPromocionId(null);
@@ -311,6 +323,9 @@ export function SociosModule({ userRole }: SociosModuleProps) {
 
   // Guardar socio (crear o actualizar)
   const handleSave = async () => {
+    const telefonoValue = formData.telefono?.trim() || '';
+    const emailValue = formData.correo?.trim() || '';
+
     const errors = {
       nombre: !(formData.nombre && formData.nombre.trim().length > 0),
       apellido: !(formData.apellido && formData.apellido.trim().length > 0),
@@ -319,6 +334,8 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       responsableNombre: formData.categoria === 'JUGADOR' ? !(formData.responsableNombre && formData.responsableNombre.trim().length > 0) : false,
       responsableApellido: formData.categoria === 'JUGADOR' ? !(formData.responsableApellido && formData.responsableApellido.trim().length > 0) : false,
       responsableDni: formData.categoria === 'JUGADOR' ? !(formData.responsableDni && formData.responsableDni.trim().length > 0) : false,
+      telefono: telefonoValue.length > 0 && !TEL_REGEX.test(telefonoValue),
+      email: emailValue.length > 0 && !EMAIL_REGEX.test(emailValue),
     };
 
     setFormErrors(errors);
@@ -327,13 +344,18 @@ export function SociosModule({ userRole }: SociosModuleProps) {
       return;
     }
 
+    const composedFechaNacimiento =
+      fechaNacimientoParts.day && fechaNacimientoParts.month && fechaNacimientoParts.year
+        ? `${fechaNacimientoParts.year}-${fechaNacimientoParts.month}-${fechaNacimientoParts.day}`
+        : formData.fechaNacimiento || null;
+
     const socioData = {
       nombre: formData.nombre || '',
       apellido: formData.apellido || '',
       dni: formData.dni || '',
-      fechaNacimiento: formData.fechaNacimiento || null,
-      email: formData.correo || null,
-      telefono: formData.telefono || null,
+      fechaNacimiento: composedFechaNacimiento,
+      email: emailValue.length > 0 ? emailValue : null,
+      telefono: telefonoValue.length > 0 ? telefonoValue : null,
       direccion: formData.direccion || null,
       categoria: formData.categoria,
       promocionId: selectedPromocionId || null,
@@ -342,17 +364,21 @@ export function SociosModule({ userRole }: SociosModuleProps) {
     
     try {
       if (editingSocio) {
-        toast.promise(personaService.update(parseInt(editingSocio.id), socioData), {
+        const savePromise = personaService.update(parseInt(editingSocio.id), socioData);
+        toast.promise(savePromise, {
           loading: 'Actualizando socio...',
           success: '¡Socio actualizado correctamente!',
           error: 'No se pudo actualizar al socio',
-        });    
+        });
+        await savePromise;
       } else {
-        toast.promise(personaService.create(socioData), {
+        const savePromise = personaService.create(socioData);
+        toast.promise(savePromise, {
           loading: 'Registrando nuevo socio...',
           success: '¡Socio registrado correctamente!',
           error: 'No se pudo regitrar al socio',
         });
+        await savePromise;
       }
 
       // Recargar la lista
@@ -1019,9 +1045,10 @@ export function SociosModule({ userRole }: SociosModuleProps) {
                             <Badge variant="outline">{getCategoriaLabel(socio.categoria)}</Badge>
                           </TableCell>
                           <TableCell>
-                          {calcularEdad(socio?.fechaNacimiento) === 0 
-                          ? "Sin edad" 
-                          : `${calcularEdad(socio?.fechaNacimiento)} años`}
+                            {(() => {
+                              const edad = calcularEdad(socio?.fechaNacimiento);
+                              return edad === 0 ? 'Sin edad' : `${edad} anos`;
+                            })()}
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">
