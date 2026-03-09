@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -25,6 +25,8 @@ interface Pago {
   id: string;
   socio: string;
   socioDNI: string;
+  responsable?: string;
+  responsableDni?: string;
   monto: number;
   fecha: string;
   mes: string;
@@ -52,6 +54,29 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [filterMesPago, setFilterMesPago] = useState<string>('all');
   const [expandedPagos, setExpandedPagos] = useState<Set<string>>(new Set());
   const [socioPopoverOpen, setSocioPopoverOpen] = useState(false);
+
+  const personaLookup = useMemo(
+    () => new Map<number, Persona>(personas.map(p => [Number(p.id), p] as const)),
+    [personas]
+  );
+
+  const getResponsableInfo = useCallback((persona?: Persona) => {
+    if (!persona || persona.categoria !== 'JUGADOR') {
+      return { label: '', dni: '' };
+    }
+
+    const responsable = persona.socioResponsable
+      || (persona.socioResponsableId ? personaLookup.get(Number(persona.socioResponsableId)) : undefined);
+
+    if (!responsable) {
+      return { label: '', dni: '' };
+    }
+
+    return {
+      label: `${responsable.nombre} ${responsable.apellido} (DNI: ${responsable.dni})`,
+      dni: responsable.dni || '',
+    };
+  }, [personaLookup]);
 
   const parseDateOnly = (dateStr?: string) => {
     if (!dateStr) return null;
@@ -103,14 +128,35 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
       const deporteMap = new Map<number, Deporte>(deportesData.map(d => [Number(d.id), d] as const));
 
+      const getResponsableFromMap = (persona?: Persona) => {
+        if (!persona || persona.categoria !== 'JUGADOR') {
+          return { label: '', dni: '' };
+        }
+
+        const responsable = persona.socioResponsable
+          || (persona.socioResponsableId ? personaMap.get(Number(persona.socioResponsableId)) : undefined);
+
+        if (!responsable) {
+          return { label: '', dni: '' };
+        }
+
+        return {
+          label: `${responsable.nombre} ${responsable.apellido} (DNI: ${responsable.dni})`,
+          dni: responsable.dni || '',
+        };
+      };
+
       // Transformar cuotas a pagos para mostrar en la tabla
       const pagosTransformados = cuotasData.map((cuota, idx) => {
         const p = personaMap.get(Number(cuota.personaId));
         const d = deporteMap.get(Number(cuota.deporteId));
+        const responsableInfo = getResponsableFromMap(p);
         return {
           id: (cuota.id || idx).toString(),
           socio: p ? `${p.nombre} ${p.apellido}` : `Persona ${cuota.personaId}`,
           socioDNI: p?.dni || '',
+          responsable: responsableInfo.label,
+          responsableDni: responsableInfo.dni,
           monto: cuota.monto,
           fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
           mes: getMesAno(cuota.periodo),
@@ -386,24 +432,32 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                               <CommandList>
                                 <CommandEmpty>No se encontraron socios.</CommandEmpty>
                                 <CommandGroup>
-                                  {personas.map((socio) => (
-                                    <CommandItem
-                                      key={socio.id}
-                                      value={`${socio.nombre} ${socio.apellido} ${socio.dni}`}
-                                      onSelect={() => {
-                                        setSelectedSocio(String(socio.id));
-                                        setSelectedCuotas([]);
-                                        setSocioPopoverOpen(false);
-                                      }}
-                                    >
-                                      <Check
-                                        className={`mr-2 h-4 w-4 ${
-                                          selectedSocio === String(socio.id) ? 'opacity-100' : 'opacity-0'
-                                        }`}
-                                      />
-                                      {socio.nombre} {socio.apellido} (DNI: {socio.dni})
-                                    </CommandItem>
-                                  ))}
+                                  {personas.map((socio) => {
+                                    const responsableInfo = getResponsableInfo(socio);
+                                    return (
+                                      <CommandItem
+                                        key={socio.id}
+                                        value={`${socio.nombre} ${socio.apellido} ${socio.dni} ${responsableInfo.label}`.trim()}
+                                        onSelect={() => {
+                                          setSelectedSocio(String(socio.id));
+                                          setSelectedCuotas([]);
+                                          setSocioPopoverOpen(false);
+                                        }}
+                                      >
+                                        <Check
+                                          className={`mr-2 h-4 w-4 ${
+                                            selectedSocio === String(socio.id) ? 'opacity-100' : 'opacity-0'
+                                          }`}
+                                        />
+                                        <div className="flex flex-col">
+                                          <span>{socio.nombre} {socio.apellido} (DNI: {socio.dni})</span>
+                                          {responsableInfo.label && (
+                                            <span className="text-xs text-gray-500">Responsable: {responsableInfo.label}</span>
+                                          )}
+                                        </div>
+                                      </CommandItem>
+                                    );
+                                  })}
                                 </CommandGroup>
                               </CommandList>
                             </Command>
@@ -549,14 +603,30 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                           return (
                             p.socio.toLowerCase().includes(search) ||
                             p.socioDNI.toLowerCase().includes(search) ||
+                            (p.responsable || '').toLowerCase().includes(search) ||
+                            (p.responsableDni || '').toLowerCase().includes(search) ||
                             p.estado.toLowerCase().includes(search) ||
                             p.conceptos.some(c => c.concepto.toLowerCase().includes(search))
                           );
                         })
                         .map((pago) => (
                           <TableRow key={pago.id}>
-                            <TableCell>{pago.socio}</TableCell>
-                            <TableCell>{pago.socioDNI}</TableCell>
+                            <TableCell>
+                              <div>
+                                <div>{pago.socio}</div>
+                                {pago.responsable && (
+                                  <div className="text-sm text-gray-400">Responsable: {pago.responsable}</div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div>{pago.socioDNI}</div>
+                                {pago.responsable && (
+                                  <div className="text-sm text-gray-400">DNI responsable: {pago.responsableDni || '-'}</div>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell>{pago.mes}</TableCell>
                             <TableCell>
                               <div className="text-sm space-y-1">
