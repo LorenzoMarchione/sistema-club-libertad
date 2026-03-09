@@ -122,11 +122,13 @@ export function PagosModule({ userRole }: PagosModuleProps) {
       setCuotas(cuotasData);
       setPersonas(personasData);
       setDeportes(deportesData);
-      setPagosServidor(Array.isArray(pagosRes.data) ? pagosRes.data : []);
+      const pagosData = Array.isArray(pagosRes.data) ? pagosRes.data : [];
+      setPagosServidor(pagosData);
 
       // Mapear por ID para acceso rápido
       const personaMap = new Map<number, Persona>(personasData.map(p => [Number(p.id), p] as const));
       const deporteMap = new Map<number, Deporte>(deportesData.map(d => [Number(d.id), d] as const));
+      const pagoMap = new Map<number, any>(pagosData.map(p => [Number(p.id), p] as const));
 
       const getResponsableFromMap = (persona?: Persona) => {
         if (!persona || persona.categoria !== 'JUGADOR') {
@@ -151,6 +153,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
         const p = personaMap.get(Number(cuota.personaId));
         const d = deporteMap.get(Number(cuota.deporteId));
         const responsableInfo = getResponsableFromMap(p);
+        const pago = cuota.pagoId ? pagoMap.get(Number(cuota.pagoId)) : undefined;
         return {
           id: (cuota.id || idx).toString(),
           socio: p ? `${p.nombre} ${p.apellido}` : `Persona ${cuota.personaId}`,
@@ -158,7 +161,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
           responsable: responsableInfo.label,
           responsableDni: responsableInfo.dni,
           monto: cuota.monto,
-          fecha: cuota.estado === 'PAGADA' ? cuota.fechaGeneracion : '',
+          fecha: cuota.estado === 'PAGADA' ? (pago?.fechaPago || '') : '',
           mes: getMesAno(cuota.periodo),
           metodoPago: 'TRANSFERENCIA' as const,
           estado: cuota.estado === 'PAGADA' ? 'pagado' : cuota.estado === 'VENCIDA' ? 'vencido' : 'pendiente',
@@ -290,7 +293,9 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const hoy = new Date().toISOString().split('T')[0];
   const estadisticas = {
     totalIngresos: pagos.filter(p => p.estado === 'pagado').reduce((sum, p) => sum + p.monto, 0),
-    ingresosDia: pagos.filter(p => p.estado === 'pagado' && p.fecha && p.fecha.startsWith(hoy)).reduce((sum, p) => sum + p.monto, 0),
+    ingresosDia: pagosServidor
+      .filter(pago => pago?.fechaPago && String(pago.fechaPago).startsWith(hoy))
+      .reduce((sum, pago) => sum + (Number(pago.montoTotal) || 0), 0),
     totalPendientes: pagos.filter(p => p.estado === 'pendiente').reduce((sum, p) => sum + p.monto, 0),
     totalVencidos: pagos.filter(p => p.estado === 'vencido').reduce((sum, p) => sum + p.monto, 0),
   };
