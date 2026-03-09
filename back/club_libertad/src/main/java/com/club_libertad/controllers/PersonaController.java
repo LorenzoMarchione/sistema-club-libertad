@@ -48,7 +48,11 @@ public class PersonaController {
                 .body("Error al crear la persona");
         try{
             Optional<Long> id = personaService.savePersona(personaTransfer);
-            if(id.isPresent()) response = ResponseEntity.ok("Persona con id " + id.get() + " creada con exito");
+            if(id.isPresent()) {
+                response = ResponseEntity.ok("Persona con id " + id.get() + " creada con exito");
+            } else {
+                return ResponseEntity.status(404).body("Socio responsable no encontrado");
+            }
         }
         catch (RegistroDuplicadoException e) {
             RegistroDuplicadoResponse body = new RegistroDuplicadoResponse(

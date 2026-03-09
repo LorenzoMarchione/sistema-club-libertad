@@ -145,6 +145,18 @@ public class PersonaService {
         boolean b = false;
         Optional<Persona> persona = getPersonaById(id);
         if(persona.isPresent()){
+            if(personaUpdate.getDni() != null && !personaUpdate.getDni().equals(persona.get().getDni())){
+                Optional<Persona> personaConDni = personaRepository.findByDni(personaUpdate.getDni());
+                if(personaConDni.isPresent() && !personaConDni.get().getId().equals(id)){
+                    return false;
+                }
+                String dniAnterior = persona.get().getDni();
+                persona.get().setDni(personaUpdate.getDni());
+                Optional<Registro> registro = registroRepository.findByDni(dniAnterior);
+                if(registro.isPresent()){
+                    registro.get().setDni(personaUpdate.getDni());
+                }
+            }
             if(personaUpdate.getNombre() != null) persona.get().setNombre(personaUpdate.getNombre());
             if(personaUpdate.getApellido() != null) persona.get().setApellido(personaUpdate.getApellido());
             if(personaUpdate.getFechaNacimiento() != null) persona.get().setFechaNacimiento(personaUpdate.getFechaNacimiento());

@@ -7,7 +7,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
+import { Plus, Download, FileText, DollarSign, TrendingUp, AlertCircle, ChevronDown, ChevronRight, Check, ChevronsUpDown } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner@2.0.3';
 import cuotaService from '../services/cuotaService';
@@ -49,6 +51,19 @@ export function PagosModule({ userRole }: PagosModuleProps) {
   const [filterDeportePago, setFilterDeportePago] = useState<string>('all');
   const [filterMesPago, setFilterMesPago] = useState<string>('all');
   const [expandedPagos, setExpandedPagos] = useState<Set<string>>(new Set());
+  const [socioPopoverOpen, setSocioPopoverOpen] = useState(false);
+
+  const parseDateOnly = (dateStr?: string) => {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+  };
+
+  const formatDateEs = (dateStr?: string) => {
+    const date = parseDateOnly(dateStr);
+    return date ? date.toLocaleDateString('es-ES') : '—';
+  };
 
   // Helper para extraer mes-año de periodo sin problemas de timezone
   const getMesAno = (periodo: string) => {
@@ -182,6 +197,13 @@ export function PagosModule({ userRole }: PagosModuleProps) {
     setMetodoPago('EFECTIVO');
     setObservaciones('');
   };
+
+  const selectedSocioLabel = selectedSocio
+    ? (() => {
+        const socio = personas.find(s => String(s.id) === selectedSocio);
+        return socio ? `${socio.nombre} ${socio.apellido} (DNI: ${socio.dni})` : 'Socio seleccionado';
+      })()
+    : '';
 
   const generarArchivoRedLink = () => {
     // En producción, esto generaría el archivo real según especificaciones de Red Link
@@ -346,18 +368,47 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Socio *</Label>
-                        <Select value={selectedSocio} onValueChange={(v) => { setSelectedSocio(v); setSelectedCuotas([]); }}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un socio" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {personas.map((socio) => (
-                              <SelectItem key={socio.id} value={String(socio.id)}>
-                                {socio.nombre} {socio.apellido} (DNI: {socio.dni})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={socioPopoverOpen} onOpenChange={setSocioPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={socioPopoverOpen}
+                              className="w-full justify-between"
+                            >
+                              {selectedSocioLabel || 'Selecciona un socio'}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar socio..." />
+                              <CommandList>
+                                <CommandEmpty>No se encontraron socios.</CommandEmpty>
+                                <CommandGroup>
+                                  {personas.map((socio) => (
+                                    <CommandItem
+                                      key={socio.id}
+                                      value={`${socio.nombre} ${socio.apellido} ${socio.dni}`}
+                                      onSelect={() => {
+                                        setSelectedSocio(String(socio.id));
+                                        setSelectedCuotas([]);
+                                        setSocioPopoverOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={`mr-2 h-4 w-4 ${
+                                          selectedSocio === String(socio.id) ? 'opacity-100' : 'opacity-0'
+                                        }`}
+                                      />
+                                      {socio.nombre} {socio.apellido} (DNI: {socio.dni})
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="space-y-2">
                         <Label>Método de Pago *</Label>
@@ -524,9 +575,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                                 {getMetodoPagoLabel(pago.metodoPago)}
                               </Badge>
                             </TableCell>
-                            <TableCell>
-                              {pago.fecha ? new Date(pago.fecha).toLocaleDateString() : '-'}
-                            </TableCell>
+                            <TableCell>{formatDateEs(pago.fecha)}</TableCell>
                             <TableCell>
                               <Badge variant={getEstadoBadge(pago.estado) as any}>
                                 {pago.estado}
@@ -612,8 +661,10 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                           const matchesMes = (() => {
                             if (filterMesPago === 'all') return true;
                             if (!pago.fechaPago) return false;
-                            const mesPago = new Date(pago.fechaPago).getMonth() + 1; // 1-12
-                            return mesPago === Number(filterMesPago);
+                            const mesPago = parseDateOnly(pago.fechaPago)?.getMonth();
+                            if (mesPago === undefined) return false;
+                            const mesPagoNumero = mesPago + 1; // 1-12
+                            return mesPagoNumero === Number(filterMesPago);
                           })();
 
                           return matchesDeporte && matchesMes;
@@ -659,7 +710,7 @@ export function PagosModule({ userRole }: PagosModuleProps) {
                               <TableCell>{socio?.dni || '—'}</TableCell>
                               <TableCell>{deportesNombres || '—'}</TableCell>
                               <TableCell>${(pago.montoTotal || 0).toLocaleString()}</TableCell>
-                              <TableCell>{pago.fechaPago ? new Date(pago.fechaPago).toLocaleDateString('es-ES') : '—'}</TableCell>
+                              <TableCell>{formatDateEs(pago.fechaPago)}</TableCell>
                               <TableCell>{pago.observaciones || '—'}</TableCell>
                             </TableRow>
                             {isExpanded && hasConceptos && (
