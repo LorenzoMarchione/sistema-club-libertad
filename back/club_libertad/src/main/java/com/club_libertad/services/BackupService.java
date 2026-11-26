@@ -30,6 +30,9 @@ public class BackupService {
     @Value("${spring.datasource.password}")
     private String datasourcePassword;
 
+    @Value("${app.backup.db-container:club-libertad-db}") 
+    private String dbContainer;
+
     private static final String BACKUP_DIR = "backups";
 
     public static class BackupInfo {
@@ -106,25 +109,32 @@ public class BackupService {
     }
 
     public boolean restoreBackup(String fileName) throws IOException, InterruptedException {
-        DbParams params = parseUrl();
-        Path dir = Paths.get(BACKUP_DIR);
-        Path filePath = dir.resolve(fileName);
-        if (!Files.exists(filePath)) {
+        if (fileName == null || fileName.isBlank() || fileName.contains("..")
+                || fileName.contains("/") || fileName.contains("\\")) {
             return false;
         }
 
-        // Use psql to execute the SQL dump over the existing database
+        DbParams params = parseUrl();
+        Path dir = Paths.get(BACKUP_DIR);
+        Path filePath = dir.resolve(fileName).normalize();
+        if (!filePath.startsWith(dir.normalize()) || !Files.exists(filePath)) {
+            return false;
+        }
+
         List<String> command = List.of(
+                "docker", "exec",
+                "-i",
+                "-e", "PGPASSWORD=" + datasourcePassword,
+                dbContainer,
                 "psql",
                 "-h", params.host(),
                 "-p", params.port(),
                 "-U", datasourceUser,
-                "-d", params.dbName(),
-                "-f", filePath.toAbsolutePath().toString()
+                "-d", params.dbName()
         );
 
         ProcessBuilder pb = new ProcessBuilder(command);
-        pb.environment().put("PGPASSWORD", datasourcePassword);
+        pb.redirectInput(filePath.toFile());
         Process process = pb.start();
         consumeStream(process.getInputStream());
         consumeStream(process.getErrorStream());
@@ -136,37 +146,42 @@ public class BackupService {
         DbParams params = parseUrl();
         Path dir = Paths.get(BACKUP_DIR);
         if (!Files.exists(dir)) Files.createDirectories(dir);
+
         String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String fileName = String.format("backup_club_libertad_%s.sql", ts);
         Path out = dir.resolve(fileName);
 
-        // Build pg_dump command
+        // Ejecutar pg_dump dentro del contenedor de Postgres y enviar el SQL por stdout
         List<String> command = List.of(
+                "docker", "exec",
+                "-e", "PGPASSWORD=" + datasourcePassword,
+                dbContainer,
                 "pg_dump",
                 "-h", params.host(),
                 "-p", params.port(),
                 "-U", datasourceUser,
-            "--clean",
-            "--if-exists",
-            "--no-owner",
-            "--no-privileges",
+                "--clean",
+                "--if-exists",
+                "--no-owner",
+                "--no-privileges",
                 "-F", "p",
-                "-f", out.toAbsolutePath().toString(),
                 params.dbName()
         );
 
         ProcessBuilder pb = new ProcessBuilder(command);
-        // Provide password via env var (PGPASSWORD) to avoid interactive prompt
-        pb.environment().put("PGPASSWORD", datasourcePassword);
+        pb.redirectOutput(out.toFile());
+        pb.redirectErrorStream(false);
+
         Process process = pb.start();
-        consumeStream(process.getInputStream());
+        // Consumir stderr para que el buffer del proceso no se trabe si Postgres emite avisos o errores
         consumeStream(process.getErrorStream());
+
         int exit = process.waitFor();
-        if (exit == 0 && Files.exists(out)) {
+        if (exit == 0 && Files.exists(out) && Files.size(out) > 0) {
             pruneOldBackups(6);
             return Optional.of(fileName);
         } else {
-            // Clean up on failure
+            // Limpiar archivo parcial o vacío si falló el dump
             try { Files.deleteIfExists(out); } catch (Exception ignored) {}
             return Optional.empty();
         }
